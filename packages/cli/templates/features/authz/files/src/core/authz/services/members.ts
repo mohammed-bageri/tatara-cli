@@ -61,8 +61,8 @@ export async function addOverlay(actorId: string | null, orgId: string, userId: 
 }
 
 export async function removeOverlay(actorId: string, orgId: string, userId: string, overlayId: string) {
-	const removed = await store.removeOverlay(orgId, overlayId);
-	if (!removed || removed.userId !== userId) throw new NotFoundError("Overlay");
+	const removed = await store.removeOverlay(orgId, userId, overlayId);
+	if (!removed) throw new NotFoundError("Overlay");
 	invalidateMember(userId, orgId);
 	await audit({ orgId, actorId, targetUserId: userId, changeType: "overlay_revoked", before: removed });
 }

@@ -222,8 +222,12 @@ export const store: AuthzStore = {
 		return id;
 	},
 
-	async removeOverlay(orgId, overlayId) {
-		const where = and(eq(authzOverlays.orgId, orgId), eq(authzOverlays.id, overlayId));
+	async removeOverlay(orgId, userId, overlayId) {
+		const where = and(
+			eq(authzOverlays.orgId, orgId),
+			eq(authzOverlays.userId, userId),
+			eq(authzOverlays.id, overlayId),
+		);
 		const [row] = await db.select().from(authzOverlays).where(where);
 		if (!row) return null;
 		await db.delete(authzOverlays).where(where);

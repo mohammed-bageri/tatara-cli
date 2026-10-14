@@ -115,6 +115,12 @@ export const betterAuth: Feature = {
 		{
 			file: "src/core/auth/delivery.ts",
 			slot: "imports",
+			unless: ["email"],
+			content: 'import { logger } from "#core/logging/logger";',
+		},
+		{
+			file: "src/core/auth/delivery.ts",
+			slot: "imports",
 			when: ["email"],
 			content: 'import { sendEmail } from "#core/email/send";',
 		},

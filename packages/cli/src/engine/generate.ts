@@ -183,6 +183,7 @@ export function packageJson(options: AppOptions, features: Feature[], pmVersion?
 			"#modules/*": "./src/modules/*.ts",
 			"#generated/*": "./src/generated/*.ts",
 			"#tests/*": "./tests/*.ts",
+			"#locales/*": "./src/locales/*.json",
 		},
 		scripts,
 		dependencies: sortObject(dependencies),

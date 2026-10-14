@@ -79,7 +79,7 @@ export interface AuthzStore {
 	revokeRole(orgId: string, userId: string, roleId: string): Promise<boolean>;
 	listOverlays(orgId: string, userId: string): Promise<OverlayRow[]>;
 	addOverlay(input: Omit<OverlayRow, "id" | "createdAt">): Promise<string>;
-	removeOverlay(orgId: string, overlayId: string): Promise<OverlayRow | null>;
+	removeOverlay(orgId: string, userId: string, overlayId: string): Promise<OverlayRow | null>;
 	writeAudit(input: Omit<AuditRow, "id" | "at">): Promise<void>;
 	listAudit(orgId: string, limit: number): Promise<AuditRow[]>;
 }

@@ -1,6 +1,5 @@
 import { smsSender } from "#core/auth/sms";
 import { env } from "#core/config/env";
-import { logger } from "#core/logging/logger";
 // tatara:slot imports
 
 export interface OutboxMessage {

@@ -18,6 +18,12 @@ describe("resolver", () => {
 		expect(allows(p, "role", "read")).toBe(false);
 	});
 
+	it("does not let a denied wide grant satisfy a narrower check", () => {
+		const p = set([{ resource: "doc", action: "read", scope: "org" }], ["doc:read:org"]);
+		expect(allows(p, "doc", "read", "team")).toBe(false);
+		expect(allows(p, "doc", "read")).toBe(false);
+	});
+
 	it("honours the scope hierarchy org > team > own", () => {
 		const p = set([{ resource: "doc", action: "read", scope: "team" }]);
 		expect(allows(p, "doc", "read", "own")).toBe(true);
@@ -93,6 +99,27 @@ describe("/api/authorization", () => {
 		expect(denied.status).toBe(201);
 		const res = await api.get("/api/authorization/roles", { headers: member.headers });
 		expect(res.status).toBe(403);
+	});
+
+	it("only removes an overlay for the member in the URL", async () => {
+		const admin = await asUser({ systemRoles: ["admin"] });
+		const alice = await authenticate();
+		const bob = await authenticate();
+		const created = await api.post<{ data: { id: string } }>(
+			`/api/authorization/members/${alice.userId}/overlays`,
+			{ resource: "role", action: "read", effect: "deny" },
+			{ headers: admin },
+		);
+		const wrong = await api.delete(
+			`/api/authorization/members/${bob.userId}/overlays/${created.body.data.id}`,
+			{ headers: admin },
+		);
+		expect(wrong.status).toBe(404);
+		const member = await api.get<{ data: { overlays: { id: string }[] } }>(
+			`/api/authorization/members/${alice.userId}`,
+			{ headers: admin },
+		);
+		expect(member.body.data.overlays.map((o) => o.id)).toEqual([created.body.data.id]);
 	});
 
 	it("reports the caller's effective permissions", async () => {

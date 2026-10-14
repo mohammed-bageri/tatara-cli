@@ -52,11 +52,15 @@ export function allows(
 ): boolean {
 	if (permissions.denies.has(`${resource}:${action}:${scope ?? "*"}`)) return false;
 	if (scope && permissions.denies.has(`${resource}:${action}:*`)) return false;
+	// a denied grant can never satisfy a check, even a narrower one
+	const live = permissions.grants.filter(
+		(g) => !permissions.denies.has(grantKey(g)) && !permissions.denies.has(`${g.resource}:${g.action}:*`),
+	);
 	if (!scope) {
-		return permissions.grants.some((g) => g.resource === resource && g.action === action);
+		return live.some((g) => g.resource === resource && g.action === action);
 	}
 	const required = SCOPE_RANK[scope];
-	return permissions.grants.some(
+	return live.some(
 		(g) =>
 			g.resource === resource &&
 			g.action === action &&

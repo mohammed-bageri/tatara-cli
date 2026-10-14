@@ -193,10 +193,10 @@ export const store: AuthzStore = {
 		return id;
 	},
 
-	async removeOverlay(orgId, overlayId) {
-		const row = await db.authzOverlay.findFirst({ where: { id: overlayId, orgId } });
+	async removeOverlay(orgId, userId, overlayId) {
+		const row = await db.authzOverlay.findFirst({ where: { id: overlayId, orgId, userId } });
 		if (!row) return null;
-		await db.authzOverlay.delete({ where: { id: overlayId } });
+		await db.authzOverlay.deleteMany({ where: { id: overlayId, orgId, userId } });
 		return toOverlay(row);
 	},
 

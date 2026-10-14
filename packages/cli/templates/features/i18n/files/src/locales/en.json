@@ -1,0 +1,10 @@
+{
+	"errors": {
+		"VALIDATION_ERROR": "Invalid request",
+		"UNAUTHORIZED": "Authentication required",
+		"FORBIDDEN": "You do not have permission to do this",
+		"NOT_FOUND": "Not found",
+		"CONFLICT": "Already exists",
+		"INTERNAL_ERROR": "Something went wrong"
+	}
+}
