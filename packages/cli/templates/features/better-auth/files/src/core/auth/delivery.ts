@@ -15,15 +15,21 @@ export interface OutboxMessage {
 
 const outbox: OutboxMessage[] = [];
 
-/** Outside production every message is kept here so tests and local sign-in can read codes. */
+/** Only with DEV_OUTBOX=true in development or test: the outbox exposes sign-in codes. */
+export function outboxEnabled(): boolean {
+	return env.DEV_OUTBOX && (env.NODE_ENV === "development" || env.NODE_ENV === "test");
+}
+
+/** Messages are kept here so tests and local sign-in can read codes. */
 function record(message: Omit<OutboxMessage, "sentAt">) {
-	if (env.NODE_ENV === "production") return;
+	if (!outboxEnabled()) return;
 	outbox.push({ ...message, sentAt: new Date().toISOString() });
 	if (outbox.length > 200) outbox.shift();
 }
 
-/** Newest first. Not available in production. */
+/** Newest first. Empty unless the outbox is enabled. */
 export function readOutbox(to?: string): OutboxMessage[] {
+	if (!outboxEnabled()) return [];
 	return outbox.filter((m) => !to || m.to === to).reverse();
 }
 

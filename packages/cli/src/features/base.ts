@@ -38,7 +38,8 @@ export const base: Feature = {
 	env: [
 		{
 			key: "NODE_ENV",
-			schema: 'z.enum(["development", "test", "production"]).default("development")',
+			// required on purpose: a missing NODE_ENV must not silently mean "development"
+			schema: 'z.enum(["development", "test", "production"])',
 			example: "development",
 			test: "test",
 		},

@@ -237,7 +237,17 @@ export async function newApp(dir: string | undefined, flags: NewFlags): Promise<
 		await sync(project);
 		await afterCreate(project, "installed");
 		const [exec, ...execArgs] = pm.exec.split(" ");
-		await run(exec ?? "npx", [...execArgs, "biome", "check", "--write", "."], root, "Formatting");
+		const format = await x(exec ?? "npx", [...execArgs, "biome", "check", "--write", "."], {
+			nodeOptions: { cwd: root },
+			throwOnError: false,
+		});
+		if (format.exitCode !== 0) {
+			console.warn(
+				pc.yellow(
+					`Formatting reported problems (please report this as a tatara bug):\n${format.stdout}`,
+				),
+			);
+		}
 	}
 
 	if (flags.git !== false) {

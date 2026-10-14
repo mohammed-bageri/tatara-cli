@@ -36,8 +36,17 @@ export async function tokenFor(options: AsUserOptions = {}): Promise<string> {
 		.sign(privateKey);
 }
 
+/** A new user (random subject) with a signed access token. */
+export async function authenticate(
+	options: AsUserOptions = {},
+): Promise<{ userId: string; headers: Record<string, string> }> {
+	const sub = options.sub ?? newId();
+	return { userId: sub, headers: { authorization: `Bearer ${await tokenFor({ ...options, sub })}` } };
+}
+
 /** Headers that authenticate as a new user. */
 export async function asUser(options: AsUserOptions = {}): Promise<Record<string, string>> {
+	const user = await authenticate(options);
 	// tatara:slot as-user
-	return { authorization: `Bearer ${await tokenFor(options)}` };
+	return user.headers;
 }

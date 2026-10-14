@@ -128,18 +128,20 @@ export async function sync(project: Project = loadProject()): Promise<SyncResult
 	}
 
 	if (project.has("authz")) {
-		const permissions = await find(root, ["src/modules/*/permissions/index.ts"]);
+		const permissions = await find(root, ["src/modules/*/permissions/*.permissions.ts"]);
 		const imports = permissions.map(
 			(f) => `import ${identifier(f, "permissions")} from "${specifier(f)}";`,
 		);
 		const names = permissions.map((f) => identifier(f, "permissions"));
 		await writeIfChanged(
 			join(out, "permissions.ts"),
-			`${HEADER}import { mergeCatalogs } from "#core/authz/catalog";
+			`${HEADER}import { mergeCatalogs, type PermissionKeysOf } from "#core/authz/catalog";
 import corePermissions from "#core/authz/permissions";
 ${imports.join("\n")}${imports.length ? "\n" : ""}
 export const catalog = mergeCatalogs(corePermissions${names.map((n) => `, ${n}`).join("")});
-export type PermissionKey = (typeof catalog.keys)[number];
+
+export type PermissionKey =
+	| PermissionKeysOf<typeof corePermissions>${names.map((n) => `\n\t| PermissionKeysOf<typeof ${n}>`).join("")};
 `,
 			written,
 		);

@@ -7,7 +7,7 @@ export default defineSeed({
 	name: "auth:dev-admin",
 	order: 0,
 	async run({ logger }) {
-		if (env.NODE_ENV === "production") return;
+		if (env.NODE_ENV !== "development" && env.NODE_ENV !== "test") return;
 		const ctx = await auth.$context;
 		const email = env.SEED_ADMIN_EMAIL;
 		const existing = await ctx.internalAdapter.findUserByEmail(email);

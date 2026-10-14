@@ -66,6 +66,15 @@ export const betterAuth: Feature = {
 			secret: true,
 		},
 		{
+			key: "DEV_OUTBOX",
+			schema: "z.stringbool().default(false)",
+			example: "false",
+			dev: "true",
+			test: "true",
+			comment:
+				"Keep emails/SMS (with sign-in codes) readable at /api/dev/outbox. Development only.",
+		},
+		{
 			key: "SEED_ADMIN_EMAIL",
 			schema: 'z.email().default("admin@example.com")',
 			example: "admin@example.com",
@@ -81,7 +90,7 @@ export const betterAuth: Feature = {
 		{
 			file: "src/core/http/app.ts",
 			slot: "imports",
-			content: 'import { readOutbox } from "#core/auth/delivery";',
+			content: 'import { outboxEnabled, readOutbox } from "#core/auth/delivery";',
 		},
 		{
 			file: "src/core/http/app.ts",
@@ -90,7 +99,7 @@ export const betterAuth: Feature = {
 			content: [
 				'if (name === "api") {',
 				'\tapp.on(["GET", "POST"], `${API_PREFIX}/auth/*`, (c) => auth.handler(c.req.raw));',
-				'\tif (env.NODE_ENV !== "production") {',
+				"\tif (outboxEnabled()) {",
 				'\t\tapp.get(`${API_PREFIX}/dev/outbox`, (c) => c.json({ messages: readOutbox(c.req.query("to")) }));',
 				"\t}",
 				"}",

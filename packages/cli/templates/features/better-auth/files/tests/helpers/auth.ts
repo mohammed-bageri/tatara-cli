@@ -22,11 +22,19 @@ export async function createTestUser(options: AsUserOptions = {}): Promise<strin
 	return user.id;
 }
 
-/** Headers that authenticate as a new user (a real session, sent as a bearer token). */
-export async function asUser(options: AsUserOptions = {}): Promise<Record<string, string>> {
+/** A new user with a real session; the token is sent as a bearer token. */
+export async function authenticate(
+	options: AsUserOptions = {},
+): Promise<{ userId: string; headers: Record<string, string> }> {
 	const userId = await createTestUser(options);
 	const ctx = await auth.$context;
 	const session = await ctx.internalAdapter.createSession(userId);
-	// tatara:slot session
-	return { authorization: `Bearer ${session.token}` };
+	return { userId, headers: { authorization: `Bearer ${session.token}` } };
+}
+
+/** Headers that authenticate as a new user. */
+export async function asUser(options: AsUserOptions = {}): Promise<Record<string, string>> {
+	const user = await authenticate(options);
+	// tatara:slot as-user
+	return user.headers;
 }

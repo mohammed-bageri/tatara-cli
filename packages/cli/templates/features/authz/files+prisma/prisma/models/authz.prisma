@@ -1,0 +1,75 @@
+// Permission system tables. scope "" = unscoped; built-in roles have org_id "".
+
+model AuthzRole {
+  id          String                 @id @db.VarChar(36)
+  orgId       String                 @default("") @map("org_id") @db.VarChar(255)
+  key         String                 @db.VarChar(64)
+  name        String                 @db.VarChar(120)
+  description String?                @db.Text
+  isSystem    Boolean                @default(false) @map("is_system")
+  createdAt   DateTime               @default(now()) @map("created_at")
+  updatedAt   DateTime               @default(now()) @updatedAt @map("updated_at")
+  permissions AuthzRolePermission[]
+  members     AuthzMemberRole[]
+
+  @@unique([orgId, key], map: "authz_roles_org_key")
+  @@map("authz_roles")
+}
+
+model AuthzRolePermission {
+  id       String    @id @db.VarChar(36)
+  roleId   String    @map("role_id") @db.VarChar(36)
+  role     AuthzRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  resource String    @db.VarChar(64)
+  action   String    @db.VarChar(64)
+  scope    String    @default("") @db.VarChar(16)
+
+  @@unique([roleId, resource, action, scope], map: "authz_role_permissions_grant")
+  @@map("authz_role_permissions")
+}
+
+model AuthzMemberRole {
+  id         String    @id @db.VarChar(36)
+  orgId      String    @map("org_id") @db.VarChar(255)
+  userId     String    @map("user_id") @db.VarChar(255)
+  roleId     String    @map("role_id") @db.VarChar(36)
+  role       AuthzRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  assignedBy String?   @map("assigned_by") @db.VarChar(255)
+  assignedAt DateTime  @default(now()) @map("assigned_at")
+
+  @@unique([orgId, userId, roleId], map: "authz_member_roles_member_role")
+  @@index([orgId, userId], map: "authz_member_roles_member")
+  @@map("authz_member_roles")
+}
+
+model AuthzOverlay {
+  id        String    @id @db.VarChar(36)
+  orgId     String    @map("org_id") @db.VarChar(255)
+  userId    String    @map("user_id") @db.VarChar(255)
+  resource  String    @db.VarChar(64)
+  action    String    @db.VarChar(64)
+  scope     String    @default("") @db.VarChar(16)
+  effect    String    @db.VarChar(8)
+  grantedBy String?   @map("granted_by") @db.VarChar(255)
+  reason    String?   @db.Text
+  expiresAt DateTime? @map("expires_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@unique([orgId, userId, resource, action, scope, effect], map: "authz_overlays_grant")
+  @@index([orgId, userId], map: "authz_overlays_member")
+  @@map("authz_overlays")
+}
+
+model AuthzAuditLog {
+  id           String   @id @db.VarChar(36)
+  orgId        String   @map("org_id") @db.VarChar(255)
+  actorId      String   @map("actor_id") @db.VarChar(255)
+  targetUserId String?  @map("target_user_id") @db.VarChar(255)
+  changeType   String   @map("change_type") @db.VarChar(48)
+  before       String?  @db.Text
+  after        String?  @db.Text
+  at           DateTime @default(now())
+
+  @@index([orgId, at], map: "authz_audit_log_org_at")
+  @@map("authz_audit_log")
+}

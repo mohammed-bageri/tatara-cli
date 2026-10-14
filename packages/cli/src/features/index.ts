@@ -1,3 +1,4 @@
+import { authz } from "./addons.ts";
 import {
 	auth,
 	authEmailOtp,
@@ -29,5 +30,6 @@ export const FEATURES: Record<string, Feature> = Object.fromEntries(
 		authOrgs,
 		keycloak,
 		auth,
+		authz,
 	].map((f) => [f.id, f]),
 );

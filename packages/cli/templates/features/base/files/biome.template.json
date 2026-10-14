@@ -13,7 +13,7 @@
 	},
 	"overrides": [
 		{
-			"includes": ["src/apps/cli/**", "src/core/commands/**", "tests/**", "*.config.ts"],
+			"includes": ["src/apps/cli/**", "src/**/commands/**", "tests/**", "*.config.ts"],
 			"linter": { "rules": { "suspicious": { "noConsole": "off" } } }
 		}
 	]
