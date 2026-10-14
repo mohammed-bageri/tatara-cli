@@ -205,7 +205,7 @@ export function composeFile(
 	}
 	if (Object.keys(services).length === 0) return undefined;
 	const doc = {
-		name: "${COMPOSE_PROJECT_NAME:-" + options.name + "}",
+		name: `\${COMPOSE_PROJECT_NAME:-${options.name}}`,
 		services,
 		...(Object.keys(volumes).length > 0 ? { volumes } : {}),
 	};

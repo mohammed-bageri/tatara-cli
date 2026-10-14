@@ -139,7 +139,8 @@ program
 	.option("--reset", "stop local services and delete their data, then start fresh")
 	.option("--prepare", "start services, migrate and seed, then exit")
 	.action(async (flags: { down?: boolean; reset?: boolean; prepare?: boolean }) => {
-		process.exitCode = await dev(loadProject(), flags);
+		// exit explicitly: child processes and watchers are gone, but stdin may still be open
+		process.exit(await dev(loadProject(), flags));
 	});
 
 program

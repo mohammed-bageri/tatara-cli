@@ -15,6 +15,8 @@ describe("local storage", () => {
 
 	it("rejects keys that escape the root", async () => {
 		const store = localStorage(await mkdtemp(join(tmpdir(), "storage-")));
-		await expect(store.put("../x", "no")).rejects.toThrow(/Invalid storage key/);
+		for (const key of ["../x", "a/../../x", "a\\..\\x", "/etc/passwd", "C:/x", "a/\0b"]) {
+			await expect(store.put(key, "no")).rejects.toThrow(/Invalid storage key/);
+		}
 	});
 });

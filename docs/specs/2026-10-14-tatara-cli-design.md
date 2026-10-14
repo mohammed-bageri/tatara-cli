@@ -119,3 +119,22 @@ minimal apps, npm and bun on two combinations each.
 
 `tatara add <addon>` on an existing app; a separate staff identity for the admin app;
 login UI for Keycloak.
+
+## Changes made during implementation
+
+- **Dev outbox instead of a static dev OTP.** No fixed bypass code exists. With
+  `DEV_OUTBOX=true` (written to the generated `.env` and `.env.test`, and only honoured when
+  NODE_ENV is `development` or `test`) every email/SMS is kept in memory and readable at
+  `GET /api/dev/outbox?to=`. Sign-in always runs the real OTP flow.
+- **NODE_ENV is required** (no default), so a misconfigured production process cannot run as
+  development. The Docker image sets `NODE_ENV=production`.
+- **Templates live in `packages/cli/templates`** so they ship with the CLI package.
+- **Admin app with better-auth requires the `orgs` method**, which provides user roles.
+- **Authz tables have no foreign keys to org/user tables** (the org source differs per provider)
+  and store unscoped grants as `scope = ''`, so unique keys behave the same on PostgreSQL and
+  MySQL. Identity-provider roles whose key matches a built-in role count as that role.
+- **Local S3 uses RustFS** (MinIO no longer publishes images on Docker Hub).
+- **Initial migrations are generated offline** at `tatara new`; `prisma` is a runtime dependency
+  so `db:migrate` (`prisma migrate deploy`) works in the production image.
+- **`tatara-check-ignore <rule>: <reason>`** on the line above silences one layout violation;
+  a reason is required.

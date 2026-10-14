@@ -7,9 +7,15 @@ export interface Storage {
 	url(key: string, expiresInSeconds?: number): Promise<string>;
 }
 
+/** Keys are relative, forward-slash paths without "..", backslashes, NUL bytes or drive prefixes. */
 export function assertKey(key: string): string {
-	if (!key || key.startsWith("/") || key.split("/").includes("..")) {
-		throw new Error(`Invalid storage key "${key}"`);
-	}
+	const invalid =
+		!key ||
+		key.startsWith("/") ||
+		key.includes("\\") ||
+		key.includes("\0") ||
+		/^[A-Za-z]:/.test(key) ||
+		key.split("/").some((segment) => segment === ".." || segment === ".");
+	if (invalid) throw new Error(`Invalid storage key "${key}"`);
 	return key;
 }

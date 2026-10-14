@@ -1,5 +1,5 @@
 import { type ChildProcess, spawn } from "node:child_process";
-import { existsSync, readFileSync, watch } from "node:fs";
+import { existsSync, type FSWatcher, readFileSync, watch } from "node:fs";
 import { join } from "node:path";
 import { parseEnv } from "node:util";
 import pc from "picocolors";
@@ -57,19 +57,22 @@ function prefixed(child: ChildProcess, label: string) {
 const CONVENTION = /\/(routes|commands|consumers|schedules|permissions|db)\/[^/]+\.ts$/;
 
 /** Re-runs `tatara sync` when convention files appear or disappear, so --watch picks them up. */
-function watchConventions(project: Project) {
+function watchConventions(project: Project): FSWatcher[] {
+	const watchers: FSWatcher[] = [];
 	let timer: NodeJS.Timeout | undefined;
 	for (const dir of ["src/modules", "src/core", "prisma/models"]) {
 		const full = join(project.root, dir);
 		if (!existsSync(full)) continue;
-		watch(full, { recursive: true }, (_event, file) => {
+		const watcher = watch(full, { recursive: true }, (_event, file) => {
 			if (!file || !(CONVENTION.test(`/${file}`) || file.endsWith(".prisma"))) return;
 			clearTimeout(timer);
 			timer = setTimeout(() => {
 				sync(project).catch((error: unknown) => console.error(pc.red(String(error))));
 			}, 150);
 		});
+		watchers.push(watcher);
 	}
+	return watchers;
 }
 
 export async function dev(project: Project, flags: DevFlags = {}): Promise<number> {
@@ -104,7 +107,7 @@ export async function dev(project: Project, flags: DevFlags = {}): Promise<numbe
 		prefixed(child, p.color(`[${p.name}]`.padEnd(8)));
 		return child;
 	});
-	watchConventions(project);
+	const watchers = watchConventions(project);
 
 	const urls = [
 		`API         http://localhost:${port}/api`,
@@ -122,8 +125,17 @@ export async function dev(project: Project, flags: DevFlags = {}): Promise<numbe
 
 	return new Promise((resolve) => {
 		const stop = () => {
-			for (const child of children) child.kill("SIGTERM");
-			resolve(0);
+			for (const watcher of watchers) watcher.close();
+			let running = children.filter((c) => c.exitCode === null).length;
+			if (running === 0) resolve(0);
+			for (const child of children) {
+				child.once("exit", () => {
+					running -= 1;
+					if (running <= 0) resolve(0);
+				});
+				child.kill("SIGTERM");
+			}
+			setTimeout(() => resolve(0), 5000).unref();
 		};
 		process.once("SIGINT", stop);
 		process.once("SIGTERM", stop);
