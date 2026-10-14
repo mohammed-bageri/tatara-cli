@@ -76,9 +76,8 @@ export function applySlots(files: FileMap, features: Feature[], selected: Readon
 	for (const feature of features) {
 		for (const slot of feature.slots ?? []) {
 			if (!isApplicable(slot, selected)) continue;
-			if (!files.has(slot.file)) {
-				throw new Error(`Feature "${feature.id}" fills a slot in missing file ${slot.file}`);
-			}
+			// a contribution may target a file that only exists for some combinations
+			if (!files.has(slot.file)) continue;
 			const list = byFile.get(slot.file) ?? [];
 			list.push({ slot: slot.slot, content: slot.content, order: slot.order ?? 100 + order++ });
 			byFile.set(slot.file, list);

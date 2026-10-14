@@ -8,7 +8,6 @@ import { type Prisma, PrismaClient } from "#generated/prisma/client";
 export const db = new PrismaClient({
 	adapter: new PrismaMariaDb({
 		...connectionConfig(env.DATABASE_URL),
-		multipleStatements: false,
 		connectionLimit: env.DATABASE_POOL_MAX,
 	}),
 });

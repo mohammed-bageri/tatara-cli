@@ -1,0 +1,32 @@
+import { auth } from "#core/auth/auth";
+import { newId } from "#core/db/id";
+// tatara:slot imports
+
+export interface AsUserOptions {
+	email?: string;
+	name?: string;
+	/** user roles (admin plugin); ignored without organizations + roles */
+	roles?: string[];
+	// tatara:slot options
+}
+
+/** Creates a verified user and returns their id. */
+export async function createTestUser(options: AsUserOptions = {}): Promise<string> {
+	const ctx = await auth.$context;
+	const user = await ctx.internalAdapter.createUser({
+		email: options.email ?? `user-${newId()}@example.com`,
+		name: options.name ?? "Test User",
+		emailVerified: true,
+		// tatara:slot user-fields
+	}, { method: "admin" });
+	return user.id;
+}
+
+/** Headers that authenticate as a new user (a real session, sent as a bearer token). */
+export async function asUser(options: AsUserOptions = {}): Promise<Record<string, string>> {
+	const userId = await createTestUser(options);
+	const ctx = await auth.$context;
+	const session = await ctx.internalAdapter.createSession(userId);
+	// tatara:slot session
+	return { authorization: `Bearer ${session.token}` };
+}

@@ -1,0 +1,41 @@
+// better-auth organization plugin tables.
+
+model Organization {
+  id          String       @id @db.VarChar(36)
+  name        String       @db.VarChar(255)
+  slug        String       @unique @db.VarChar(255)
+  logo        String?      @db.Text
+  metadata    String?      @db.Text
+  createdAt   DateTime     @default(now()) @map("created_at")
+  members     Member[]
+  invitations Invitation[]
+
+  @@map("organizations")
+}
+
+model Member {
+  id             String       @id @db.VarChar(36)
+  organizationId String       @map("organization_id") @db.VarChar(36)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String       @map("user_id") @db.VarChar(36)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           String       @default("member") @db.VarChar(64)
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@map("members")
+}
+
+model Invitation {
+  id             String       @id @db.VarChar(36)
+  organizationId String       @map("organization_id") @db.VarChar(36)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String       @db.VarChar(255)
+  role           String?      @db.VarChar(64)
+  status         String       @default("pending") @db.VarChar(32)
+  expiresAt      DateTime     @map("expires_at")
+  inviterId      String       @map("inviter_id") @db.VarChar(36)
+  inviter        User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@map("invitations")
+}

@@ -2,18 +2,32 @@ import * as mariadb from "mariadb";
 
 const MIGRATION_TABLES = ["__drizzle_migrations", "_prisma_migrations"];
 
-export function connectionConfig(url: string, database?: string): mariadb.ConnectionConfig {
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+
+/**
+ * mariadb connection options from a mysql:// URL. Public-key retrieval (needed by MySQL's
+ * caching_sha2_password without TLS) is only enabled for local hosts or when the URL asks
+ * for it; use `?ssl=true` for remote databases.
+ */
+export function connectionConfig(url: string): mariadb.ConnectionConfig {
 	const u = new URL(url);
+	const param = (name: string) => u.searchParams.get(name);
 	return {
 		host: u.hostname,
 		port: Number(u.port || 3306),
 		user: decodeURIComponent(u.username),
 		password: decodeURIComponent(u.password),
-		database: database ?? (decodeURIComponent(u.pathname.slice(1)) || undefined),
-		allowPublicKeyRetrieval: true,
-		multipleStatements: true,
+		database: decodeURIComponent(u.pathname.slice(1)) || undefined,
+		allowPublicKeyRetrieval:
+			param("allowPublicKeyRetrieval") === "true" || LOCAL_HOSTS.has(u.hostname),
+		...(param("ssl") === "true" ? { ssl: { rejectUnauthorized: true } } : {}),
 	};
 }
+
+const adminConfig = (url: string): mariadb.ConnectionConfig => ({
+	...connectionConfig(url),
+	multipleStatements: true,
+});
 
 async function withConnection<T>(
 	config: mariadb.ConnectionConfig,
@@ -29,7 +43,7 @@ async function withConnection<T>(
 
 /** Creates the database named in `url` if it does not exist. */
 export async function ensureDatabase(url: string): Promise<void> {
-	const config = connectionConfig(url);
+	const config = adminConfig(url);
 	const name = String(config.database);
 	await withConnection({ ...config, database: undefined }, async (c) => {
 		await c.query(`create database if not exists \`${name.replaceAll("`", "``")}\``);
@@ -44,7 +58,7 @@ async function tables(c: mariadb.Connection): Promise<string[]> {
 }
 
 export async function dropAllTables(url: string): Promise<void> {
-	await withConnection(connectionConfig(url), async (c) => {
+	await withConnection(adminConfig(url), async (c) => {
 		const names = await tables(c);
 		if (names.length === 0) return;
 		await c.query(
@@ -54,7 +68,7 @@ export async function dropAllTables(url: string): Promise<void> {
 }
 
 export async function truncateAllTables(url: string): Promise<void> {
-	await withConnection(connectionConfig(url), async (c) => {
+	await withConnection(adminConfig(url), async (c) => {
 		const names = (await tables(c)).filter((t) => !MIGRATION_TABLES.includes(t));
 		if (names.length === 0) return;
 		await c.query(

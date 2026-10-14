@@ -23,7 +23,11 @@ export function fillSlots(text: string, fills: SlotFill[]): string {
 		}
 		const indent = match[1] ?? "";
 		const contributions = (bySlot.get(match[2] ?? "") ?? []).sort((a, b) => a.order - b.order);
+		const seen = new Set<string>();
 		for (const c of contributions) {
+			// the same import contributed by two features is inserted once
+			if (seen.has(c.content)) continue;
+			seen.add(c.content);
 			for (const contentLine of c.content.replace(/\n$/, "").split("\n")) {
 				out.push(contentLine.length > 0 ? indent + contentLine : "");
 			}
