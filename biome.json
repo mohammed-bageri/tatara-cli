@@ -1,12 +1,21 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
-  "files": { "includes": ["**", "!**/node_modules", "!**/dist", "!.e2e", "!templates"] },
-  "formatter": { "indentStyle": "tab", "lineWidth": 100 },
-  "javascript": { "formatter": { "quoteStyle": "double" } },
-  "linter": {
-    "rules": {
-      "style": { "useImportType": "error", "noNonNullAssertion": "off" },
-      "suspicious": { "noConsole": "off" }
-    }
-  }
+	"$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
+	"files": {
+		"includes": [
+			"**",
+			"!**/node_modules",
+			"!**/dist",
+			"!.e2e",
+			"!packages/cli/templates",
+			"!**/.e2e"
+		]
+	},
+	"formatter": { "indentStyle": "tab", "lineWidth": 100 },
+	"javascript": { "formatter": { "quoteStyle": "double" } },
+	"linter": {
+		"rules": {
+			"style": { "useImportType": "error", "noNonNullAssertion": "off" },
+			"suspicious": { "noConsole": "off" }
+		}
+	}
 }

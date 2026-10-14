@@ -10,7 +10,8 @@ export interface Violation {
 	message: string;
 }
 
-const IMPORT = /(?:import|export)\s[^"']*?from\s*["']([^"']+)["']|import\(\s*["']([^"']+)["']\s*\)/g;
+const IMPORT =
+	/(?:import|export)\s[^"']*?from\s*["']([^"']+)["']|import\(\s*["']([^"']+)["']\s*\)/g;
 
 function lineOf(text: string, index: number): number {
 	return text.slice(0, index).split("\n").length;
@@ -24,8 +25,10 @@ export async function check(project: Project = loadProject()): Promise<Violation
 		ignore: ["src/generated/**"],
 	});
 	const violations: Violation[] = [];
+	const sources = new Map<string, string>();
 	for (const file of files.sort()) {
 		const text = await readFile(join(root, file), "utf8");
+		sources.set(file, text);
 		const moduleName = /^src\/modules\/([^/]+)\//.exec(file)?.[1];
 
 		for (const match of text.matchAll(IMPORT)) {
@@ -85,5 +88,11 @@ export async function check(project: Project = loadProject()): Promise<Violation
 			});
 		}
 	}
-	return violations;
+	return violations.filter((v) => !ignored(v, sources.get(v.file) ?? ""));
+}
+
+/** `// tatara-check-ignore <rule>: <reason>` on the line above a violation silences it. */
+function ignored(v: Violation, text: string): boolean {
+	const previous = text.split("\n")[v.line - 2] ?? "";
+	return new RegExp(`tatara-check-ignore\\s+${v.rule}:\\s*\\S`).test(previous);
 }

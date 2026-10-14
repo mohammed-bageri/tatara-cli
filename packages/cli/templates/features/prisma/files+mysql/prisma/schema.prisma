@@ -1,0 +1,11 @@
+// Models live in prisma/models/*.prisma (one file per table).
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  importFileExtension = "ts"
+  moduleFormat        = "esm"
+}
+
+datasource db {
+  provider = "mysql"
+}

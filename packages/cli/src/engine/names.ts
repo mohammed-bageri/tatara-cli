@@ -40,7 +40,15 @@ const IRREGULAR: Record<string, string> = {
 	foot: "feet",
 };
 
-const UNCOUNTABLE = new Set(["data", "information", "equipment", "news", "series", "species", "media"]);
+const UNCOUNTABLE = new Set([
+	"data",
+	"information",
+	"equipment",
+	"news",
+	"series",
+	"species",
+	"media",
+]);
 
 export function pluralize(word: string): string {
 	if (UNCOUNTABLE.has(word)) return word;

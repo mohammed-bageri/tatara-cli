@@ -14,6 +14,7 @@ const RENAMES: Record<string, string> = {
 	_github: ".github",
 	gitignore: ".gitignore",
 	dockerignore: ".dockerignore",
+	"biome.template.json": "biome.json",
 };
 
 export type FileMap = Map<string, string>;
@@ -42,7 +43,14 @@ async function featureFileDirs(feature: Feature, selected: ReadonlySet<string>):
 	const dirs = (await readdir(root, { withFileTypes: true }))
 		.filter((e) => e.isDirectory() && (e.name === "files" || e.name.startsWith("files+")))
 		.map((e) => e.name)
-		.filter((name) => name === "files" || name.split("+").slice(1).every((id) => selected.has(id)))
+		.filter(
+			(name) =>
+				name === "files" ||
+				name
+					.split("+")
+					.slice(1)
+					.every((id) => selected.has(id)),
+		)
 		.sort((a, b) => a.split("+").length - b.split("+").length || a.localeCompare(b));
 	return dirs.map((d) => join(root, d));
 }
@@ -101,7 +109,8 @@ export function applyTokens(text: string, values: Record<string, string>): strin
 function envValue(v: EnvVar, kind: "example" | "dev" | "test"): string {
 	if (kind === "example") return v.example;
 	if (v.secret && kind === "dev") return randomBytes(32).toString("base64url");
-	if (kind === "test") return v.test ?? (v.secret ? "test-secret-test-secret-test-secret-00" : (v.dev ?? v.example));
+	if (kind === "test")
+		return v.test ?? (v.secret ? "test-secret-test-secret-test-secret-00" : (v.dev ?? v.example));
 	return v.dev ?? v.example;
 }
 
@@ -166,7 +175,9 @@ export function packageJson(options: AppOptions, features: Feature[], pmVersion?
 		private: true,
 		type: "module",
 		engines: { node: ">=24" },
-		...(options.packageManager === "pnpm" && pmVersion ? { packageManager: `pnpm@${pmVersion}` } : {}),
+		...(options.packageManager === "pnpm" && pmVersion
+			? { packageManager: `pnpm@${pmVersion}` }
+			: {}),
 		imports: {
 			"#apps/*": "./src/apps/*.ts",
 			"#core/*": "./src/core/*.ts",
@@ -181,7 +192,11 @@ export function packageJson(options: AppOptions, features: Feature[], pmVersion?
 	return `${JSON.stringify(pkg, null, "\t")}\n`;
 }
 
-export function composeFile(options: AppOptions, features: Feature[], tokenValues: Record<string, string>) {
+export function composeFile(
+	options: AppOptions,
+	features: Feature[],
+	tokenValues: Record<string, string>,
+) {
 	const services: Record<string, unknown> = {};
 	const volumes: Record<string, null> = {};
 	for (const f of features) {
@@ -209,15 +224,39 @@ export interface GenerateOptions {
 	pmVersion?: string;
 }
 
-/** Renders the whole app in memory: template files, slots, tokens and generated config. */
-export async function renderApp(options: AppOptions, generate: GenerateOptions = {}): Promise<FileMap> {
+/** Folds applicable variants into each feature so later steps see one flat definition. */
+export function effectiveFeatures(options: AppOptions): Feature[] {
 	const features = resolveFeatures(options);
+	const selected = new Set(features.map((f) => f.id));
+	return features.map((f) => {
+		const variants = (f.variants ?? []).filter((v) => isApplicable(v, selected));
+		if (variants.length === 0) return f;
+		return {
+			...f,
+			dependencies: [...(f.dependencies ?? []), ...variants.flatMap((v) => v.dependencies ?? [])],
+			devDependencies: [
+				...(f.devDependencies ?? []),
+				...variants.flatMap((v) => v.devDependencies ?? []),
+			],
+			scripts: Object.assign({}, f.scripts, ...variants.map((v) => v.scripts ?? {})),
+			allowBuilds: [...(f.allowBuilds ?? []), ...variants.flatMap((v) => v.allowBuilds ?? [])],
+			env: [...(f.env ?? []), ...variants.flatMap((v) => v.env ?? [])],
+		};
+	});
+}
+
+/** Renders the whole app in memory: template files, slots, tokens and generated config. */
+export async function renderApp(
+	options: AppOptions,
+	generate: GenerateOptions = {},
+): Promise<FileMap> {
+	const features = effectiveFeatures(options);
 	const selected = new Set(features.map((f) => f.id));
 	const tokenValues = tokens(options);
 	const files = await collectTemplateFiles(features, selected);
 
 	const env = dedupeEnv(features, tokenValues);
-	files.set("src/core/config/env.ts", envModule(env));
+	files.set("src/core/config/env.ts", envModule(env.filter((v) => !v.composeOnly)));
 	files.set(".env.example", envFile(env, "example"));
 	files.set(".env.test", envFile(env, "test"));
 
@@ -271,6 +310,6 @@ export async function writeFiles(targetDir: string, files: FileMap, extra: { env
 }
 
 export function devEnvFromExample(options: AppOptions): string {
-	const features = resolveFeatures(options);
+	const features = effectiveFeatures(options);
 	return envFile(dedupeEnv(features, tokens(options)), "dev");
 }

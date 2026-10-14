@@ -17,7 +17,9 @@ function identifier(path: string, prefix: string): string {
 		.replace(/^src\//, "")
 		.replace(/\.ts$/, "")
 		.split("/")
-		.filter((p) => !["routes", "commands", "consumers", "schedules", "permissions", "db"].includes(p));
+		.filter(
+			(p) => !["routes", "commands", "consumers", "schedules", "permissions", "db"].includes(p),
+		);
 	const raw = `${prefix}_${parts.join("_")}`.replace(/[^A-Za-z0-9_]/g, "_");
 	return raw.replace(/_+/g, "_");
 }
@@ -35,7 +37,9 @@ function listModule(
 	files: string[],
 	options: { prefix: string; typeImport: string; typeName: string; exportName: string },
 ): string {
-	const imports = files.map((f) => `import ${identifier(f, options.prefix)} from "${specifier(f)}";`);
+	const imports = files.map(
+		(f) => `import ${identifier(f, options.prefix)} from "${specifier(f)}";`,
+	);
 	const names = files.map((f) => identifier(f, options.prefix));
 	return `${HEADER}${options.typeImport}
 ${imports.join("\n")}${imports.length ? "\n" : ""}
@@ -141,14 +145,31 @@ export type PermissionKey = (typeof catalog.keys)[number];
 		);
 	}
 
+	if (project.config.database !== "none") {
+		const seeds = await find(
+			root,
+			dirs.map((d) => `${d}/db/seed.ts`),
+		);
+		await writeIfChanged(
+			join(out, "seeds.ts"),
+			listModule(seeds, {
+				prefix: "seed",
+				typeImport: 'import type { SeedDefinition } from "#core/db/seed";',
+				typeName: "SeedDefinition",
+				exportName: "seeds",
+			}),
+			written,
+		);
+	}
+
 	if (project.config.orm === "drizzle") {
 		const schemas = await find(
 			root,
-			dirs.map((d) => `${d}/db/schema.ts`),
+			dirs.map((d) => `${d}/db/*.schema.ts`),
 		);
 		await writeIfChanged(
 			join(out, "schema.ts"),
-			`${HEADER}${schemas.map((f) => `export * from "${specifier(f)}";`).join("\n")}\n`,
+			`${HEADER}${schemas.map((f) => `export * from "${specifier(f)}";`).join("\n")}\nexport {};\n`,
 			written,
 		);
 	}
@@ -156,7 +177,10 @@ export type PermissionKey = (typeof catalog.keys)[number];
 	if (project.config.orm === "prisma") {
 		const bin = join(root, "node_modules/.bin/prisma");
 		if (existsSync(bin)) {
-			const result = await x(bin, ["generate"], { nodeOptions: { cwd: root }, throwOnError: false });
+			const result = await x(bin, ["generate"], {
+				nodeOptions: { cwd: root },
+				throwOnError: false,
+			});
 			if (result.exitCode !== 0) {
 				throw new Error(`prisma generate failed:\n${result.stdout}${result.stderr}`);
 			}

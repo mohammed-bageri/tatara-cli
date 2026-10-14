@@ -46,7 +46,7 @@ export function validateOptions(input: AppOptions): AppOptions {
 /** Feature ids selected by the options, in application order. */
 export function selectedFeatureIds(options: AppOptions): string[] {
 	const ids = ["base", `pm-${options.packageManager}`];
-	if (options.database !== "none") ids.push(options.database);
+	if (options.database !== "none") ids.push("db", options.database);
 	if (options.orm !== "none") ids.push(options.orm);
 	if (options.auth !== "none") ids.push(options.auth);
 	if (options.auth === "better-auth") {

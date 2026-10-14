@@ -12,9 +12,19 @@ export interface PmCommands {
 export function pmCommands(pm: PackageManager): PmCommands {
 	switch (pm) {
 		case "pnpm":
-			return { install: ["pnpm", "install"], run: "pnpm", exec: "pnpm exec", lockfile: "pnpm-lock.yaml" };
+			return {
+				install: ["pnpm", "install"],
+				run: "pnpm",
+				exec: "pnpm exec",
+				lockfile: "pnpm-lock.yaml",
+			};
 		case "npm":
-			return { install: ["npm", "install"], run: "npm run", exec: "npx", lockfile: "package-lock.json" };
+			return {
+				install: ["npm", "install"],
+				run: "npm run",
+				exec: "npx",
+				lockfile: "package-lock.json",
+			};
 		case "bun":
 			return { install: ["bun", "install"], run: "bun run", exec: "bunx", lockfile: "bun.lock" };
 	}

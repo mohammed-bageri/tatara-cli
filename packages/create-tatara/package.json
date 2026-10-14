@@ -1,20 +1,26 @@
 {
-  "name": "create-tatara",
-  "version": "0.1.0",
-  "description": "Create a new Tatara app: npm create tatara my-app",
-  "type": "module",
-  "license": "MIT",
-  "bin": { "create-tatara": "./dist/index.mjs" },
-  "files": ["dist"],
-  "engines": { "node": ">=24" },
-  "scripts": {
-    "build": "tsdown",
-    "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "@tatara/cli": "workspace:*"
-  },
-  "devDependencies": {
-    "tsdown": "0.23.1"
-  }
+	"name": "create-tatara",
+	"version": "0.1.0",
+	"description": "Create a new Tatara app: npm create tatara my-app",
+	"type": "module",
+	"license": "MIT",
+	"bin": {
+		"create-tatara": "./dist/index.mjs"
+	},
+	"files": [
+		"dist"
+	],
+	"engines": {
+		"node": ">=24"
+	},
+	"scripts": {
+		"build": "tsdown",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@tatara/cli": "workspace:*"
+	},
+	"devDependencies": {
+		"tsdown": "0.23.1"
+	}
 }

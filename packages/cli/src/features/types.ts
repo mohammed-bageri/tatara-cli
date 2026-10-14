@@ -29,6 +29,8 @@ export interface EnvVar {
 	test?: string;
 	secret?: boolean;
 	comment?: string;
+	/** only written to .env files (used by compose), not validated by the app */
+	composeOnly?: boolean;
 }
 
 export interface ComposeService {
@@ -54,6 +56,17 @@ export interface Entrypoint {
 	description: string;
 }
 
+/** Extra packages/env applied only when `when` features are selected (and `unless` are not). */
+export interface FeatureVariant {
+	when?: string[];
+	unless?: string[];
+	dependencies?: string[];
+	devDependencies?: string[];
+	scripts?: Record<string, string>;
+	allowBuilds?: string[];
+	env?: EnvVar[];
+}
+
 export interface Feature {
 	id: string;
 	kind: FeatureKind;
@@ -70,6 +83,7 @@ export interface Feature {
 	entrypoints?: Entrypoint[];
 	/** markdown appended to AGENTS.md */
 	agents?: string;
+	variants?: FeatureVariant[];
 	/** template directory under templates/features; defaults to id */
 	templateDir?: string;
 }

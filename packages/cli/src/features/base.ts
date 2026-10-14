@@ -45,7 +45,8 @@ export const base: Feature = {
 		{ key: "PORT", schema: "z.coerce.number().int().default(3000)", example: "3000" },
 		{
 			key: "LOG_LEVEL",
-			schema: 'z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info")',
+			schema:
+				'z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info")',
 			example: "info",
 			test: "silent",
 		},
@@ -96,7 +97,7 @@ export const pnpm: Feature = {
 			order: 0,
 			content: [
 				"COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./",
-				"RUN pnpm install --frozen-lockfile --prod --ignore-scripts",
+				"RUN pnpm install --frozen-lockfile --prod",
 				"COPY --from=build /app/dist ./dist",
 			].join("\n"),
 		},
@@ -123,9 +124,12 @@ export const npm: Feature = {
 		{
 			file: "Dockerfile",
 			slot: "docker-build",
-			content: ["COPY package.json package-lock.json ./", "RUN npm ci", "COPY . .", "RUN npm run build"].join(
-				"\n",
-			),
+			content: [
+				"COPY package.json package-lock.json ./",
+				"RUN npm ci",
+				"COPY . .",
+				"RUN npm run build",
+			].join("\n"),
 		},
 		{
 			file: "Dockerfile",
@@ -133,7 +137,7 @@ export const npm: Feature = {
 			order: 0,
 			content: [
 				"COPY package.json package-lock.json ./",
-				"RUN npm ci --omit=dev --ignore-scripts",
+				"RUN npm ci --omit=dev",
 				"COPY --from=build /app/dist ./dist",
 			].join("\n"),
 		},
@@ -173,7 +177,7 @@ export const bun: Feature = {
 			order: 0,
 			content: [
 				"COPY package.json bun.lock ./",
-				"RUN bun install --frozen-lockfile --production --ignore-scripts",
+				"RUN bun install --frozen-lockfile --production",
 				"COPY --from=build /app/dist ./dist",
 			].join("\n"),
 		},

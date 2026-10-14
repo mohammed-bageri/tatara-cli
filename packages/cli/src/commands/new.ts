@@ -45,7 +45,11 @@ function oneOf<T extends string>(value: string, allowed: readonly T[], flag: str
 	return value as Exclude<T, symbol>;
 }
 
-function listOf<T extends string>(value: string | undefined, allowed: readonly T[], flag: string): T[] {
+function listOf<T extends string>(
+	value: string | undefined,
+	allowed: readonly T[],
+	flag: string,
+): T[] {
 	if (!value || value === "none") return [];
 	return value
 		.split(",")
@@ -124,7 +128,11 @@ async function prompt(name: string, flags: NewFlags): Promise<AppOptions> {
 							{ value: "email-otp", label: "Email OTP" },
 							{ value: "phone-otp", label: "Phone OTP" },
 							{ value: "password", label: "Email + password" },
-							{ value: "orgs", label: "Organizations + roles", hint: "organization and admin plugins" },
+							{
+								value: "orgs",
+								label: "Organizations + roles",
+								hint: "organization and admin plugins",
+							},
 						],
 						required: true,
 					}),
@@ -145,9 +153,9 @@ async function prompt(name: string, flags: NewFlags): Promise<AppOptions> {
 					await p.multiselect<Addon>({
 						message: "Add-ons",
 						required: false,
-						options: ADDONS.filter((a) => !((a === "authz" || a === "admin") && auth === "none")).map(
-							(value) => ({ value, label: labels[value] }),
-						),
+						options: ADDONS.filter(
+							(a) => !((a === "authz" || a === "admin") && auth === "none"),
+						).map((value) => ({ value, label: labels[value] })),
 					}),
 				);
 	const packageManager: PackageManager = flags.pm
@@ -188,14 +196,16 @@ async function pmVersion(pm: PackageManager): Promise<string | undefined> {
 }
 
 async function run(cmd: string, args: string[], cwd: string, label: string) {
-	const spinner = p.spinner();
-	spinner.start(label);
+	const tty = Boolean(process.stdout.isTTY);
+	const spinner = tty ? p.spinner() : undefined;
+	if (spinner) spinner.start(label);
+	else console.log(`• ${label}`);
 	const result = await x(cmd, args, { nodeOptions: { cwd }, throwOnError: false });
 	if (result.exitCode !== 0) {
-		spinner.stop(pc.red(`${label} failed`));
+		spinner?.stop(pc.red(`${label} failed`));
 		throw new Error(`${cmd} ${args.join(" ")} failed:\n${result.stdout}\n${result.stderr}`);
 	}
-	spinner.stop(label);
+	spinner?.stop(label);
 }
 
 export async function newApp(dir: string | undefined, flags: NewFlags): Promise<string> {
@@ -231,7 +241,10 @@ export async function newApp(dir: string | undefined, flags: NewFlags): Promise<
 	}
 
 	if (flags.git !== false) {
-		const git = await x("git", ["init", "-q", "-b", "main"], { nodeOptions: { cwd: root }, throwOnError: false });
+		const git = await x("git", ["init", "-q", "-b", "main"], {
+			nodeOptions: { cwd: root },
+			throwOnError: false,
+		});
 		if (git.exitCode === 0) {
 			await x("git", ["add", "-A"], { nodeOptions: { cwd: root }, throwOnError: false });
 			await x("git", ["commit", "-q", "-m", "Initial commit from tatara"], {
@@ -241,7 +254,11 @@ export async function newApp(dir: string | undefined, flags: NewFlags): Promise<
 		}
 	}
 
-	const next = [`cd ${target}`, ...(flags.install === false ? [pm.install.join(" ")] : []), `${pm.run} dev`];
+	const next = [
+		`cd ${target}`,
+		...(flags.install === false ? [pm.install.join(" ")] : []),
+		`${pm.run} dev`,
+	];
 	if (interactive) p.outro(`Done. Next:\n\n  ${next.join("\n  ")}`);
 	else console.log(`Created ${root}\nNext:\n  ${next.join("\n  ")}`);
 	return root;

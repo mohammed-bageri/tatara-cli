@@ -1,6 +1,13 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import type { Addon, AuthMethod, AuthProvider, Database, Orm, PackageManager } from "../features/types.ts";
+import type {
+	Addon,
+	AuthMethod,
+	AuthProvider,
+	Database,
+	Orm,
+	PackageManager,
+} from "../features/types.ts";
 
 export interface ProjectConfig {
 	$schema?: string;
@@ -48,6 +55,7 @@ export function loadProject(from = process.cwd()): Project {
 		...config.authMethods.map((m) => `auth-${m}`),
 		...config.addons,
 		...(config.auth === "none" ? [] : ["auth"]),
+		...(config.database === "none" ? [] : ["db"]),
 	]);
 	return { root, config, has: (f) => features.has(f) };
 }
