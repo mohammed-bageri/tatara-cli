@@ -1,0 +1,37 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://raw.githubusercontent.com/mohammed-bageri/tatara/main/schema/tatara.json",
+	"title": "tatara.json",
+	"description": "What a tatara app was created with; read by the tatara CLI's generators.",
+	"type": "object",
+	"required": [
+		"version",
+		"name",
+		"orm",
+		"database",
+		"auth",
+		"authMethods",
+		"addons",
+		"packageManager"
+	],
+	"properties": {
+		"$schema": { "type": "string" },
+		"version": { "type": "string", "description": "tatara version the app was created with" },
+		"name": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+		"orm": { "enum": ["drizzle", "prisma", "none"] },
+		"database": { "enum": ["postgres", "mysql", "none"] },
+		"auth": { "enum": ["better-auth", "keycloak", "none"] },
+		"authMethods": {
+			"type": "array",
+			"items": { "enum": ["email-otp", "phone-otp", "password", "orgs"] },
+			"uniqueItems": true
+		},
+		"addons": {
+			"type": "array",
+			"items": { "enum": ["authz", "jobs", "admin", "storage", "email", "i18n"] },
+			"uniqueItems": true
+		},
+		"packageManager": { "enum": ["pnpm", "npm", "bun"] }
+	},
+	"additionalProperties": false
+}
