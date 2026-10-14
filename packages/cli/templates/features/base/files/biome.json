@@ -1,0 +1,20 @@
+{
+	"$schema": "https://biomejs.dev/schemas/__BIOME_VERSION__/schema.json",
+	"files": {
+		"includes": ["**", "!**/node_modules", "!**/dist", "!**/coverage", "!src/generated"]
+	},
+	"formatter": { "indentStyle": "tab", "lineWidth": 100 },
+	"javascript": { "formatter": { "quoteStyle": "double" } },
+	"linter": {
+		"rules": {
+			"style": { "useImportType": "error" },
+			"suspicious": { "noConsole": "error" }
+		}
+	},
+	"overrides": [
+		{
+			"includes": ["src/apps/cli/**", "src/core/commands/**", "tests/**", "*.config.ts"],
+			"linter": { "rules": { "suspicious": { "noConsole": "off" } } }
+		}
+	]
+}

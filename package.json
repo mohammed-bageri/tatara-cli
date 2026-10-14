@@ -1,0 +1,24 @@
+{
+  "name": "tatara-monorepo",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.25.0",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "build": "pnpm -r --filter ./packages/* run build",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "typecheck": "tsc -b packages/cli packages/create-tatara",
+    "test": "vitest run",
+    "e2e": "node e2e/run.ts",
+    "versions:update": "node scripts/update-versions.ts",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@changesets/cli": "3.0.3",
+    "@types/node": "24.19.2",
+    "typescript": "7.0.2",
+    "vitest": "5.0.4"
+  }
+}

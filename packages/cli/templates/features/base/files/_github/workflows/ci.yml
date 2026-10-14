@@ -1,0 +1,16 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      # tatara:slot ci-setup
+      - run: cp .env.example .env
+      # tatara:slot ci-services
+      - run: __PM_RUN__ verify

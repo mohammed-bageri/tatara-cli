@@ -1,0 +1,25 @@
+{
+  "name": "@tatara/cli",
+  "version": "0.1.0",
+  "description": "Create and grow opinionated Hono backends",
+  "type": "module",
+  "license": "MIT",
+  "bin": { "tatara": "./dist/bin.mjs" },
+  "files": ["dist", "templates"],
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@clack/prompts": "1.8.1",
+    "commander": "15.0.0",
+    "picocolors": "1.1.1",
+    "tinyexec": "1.3.1",
+    "tinyglobby": "0.2.17",
+    "yaml": "2.9.1"
+  },
+  "devDependencies": {
+    "tsdown": "0.23.1"
+  }
+}
