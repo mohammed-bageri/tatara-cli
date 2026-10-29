@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { glob } from "tinyglobby";
 import { loadProject, type Project } from "../project/config.ts";
+import { routeMountCollisions } from "./route-mounts.ts";
 
 export interface Violation {
 	file: string;
@@ -88,6 +89,7 @@ export async function check(project: Project = loadProject()): Promise<Violation
 			});
 		}
 	}
+	violations.push(...routeMountCollisions(sources));
 	return violations.filter((v) => !ignored(v, sources.get(v.file) ?? ""));
 }
 

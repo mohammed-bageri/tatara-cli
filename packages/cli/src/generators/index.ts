@@ -2,6 +2,8 @@ import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import { x } from "tinyexec";
+import { glob } from "tinyglobby";
+import { routeMountCollisions } from "../commands/route-mounts.ts";
 import { applyNames, type Names, names } from "../engine/names.ts";
 import { fillSlots, type SlotFill } from "../engine/slots.ts";
 import { TEMPLATES_DIR } from "../paths.ts";
@@ -198,6 +200,19 @@ export async function generate(
 	const existing = [...rendered.keys()].filter((rel) => existsSync(join(project.root, rel)));
 	if (existing.length > 0) {
 		throw new GeneratorError(`Refusing to overwrite existing file(s):\n  ${existing.join("\n  ")}`);
+	}
+	const routeSources = new Map<string, string>();
+	for (const rel of await glob("src/**/routes/*.routes.ts", { cwd: project.root })) {
+		routeSources.set(rel, await readFile(join(project.root, rel), "utf8"));
+	}
+	const before = routeMountCollisions(routeSources).length;
+	for (const [rel, text] of rendered) routeSources.set(rel, text);
+	const after = routeMountCollisions(routeSources);
+	const collision = after.length > before ? after.at(-1) : undefined;
+	if (collision) {
+		throw new GeneratorError(
+			`${collision.file}: ${collision.message}. Pick another --name, or create it and change basePath.`,
+		);
 	}
 	const files = [...rendered.keys()].sort();
 	if (request.dryRun) return { kind: request.kind, files, dryRun: true };
