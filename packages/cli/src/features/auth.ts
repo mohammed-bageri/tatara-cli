@@ -43,7 +43,8 @@ export const auth: Feature = {
 
 const BETTER_AUTH_AGENTS = `### better-auth
 
-- Endpoints are served at \`/api/auth/*\`; their reference is at \`/api/auth/reference\`.
+- Endpoints are served at \`/api/auth/*\` and listed in \`/openapi.json\` and \`/docs\` under the Auth tag
+  (schemas prefixed \`Auth\`). better-auth's own reference is also at \`/api/auth/reference\`.
 - Sessions work as cookies (browsers) and as \`Authorization: Bearer <session token>\` (mobile, APIs).
 - Outside production, every email and SMS is kept in an in-memory outbox:
   \`GET /api/dev/outbox?to=<address>\` returns the latest messages, including sign-in codes.
@@ -91,6 +92,16 @@ export const betterAuth: Feature = {
 			file: "src/core/http/app.ts",
 			slot: "imports",
 			content: 'import { outboxEnabled, readOutbox } from "#core/auth/delivery";',
+		},
+		{
+			file: "src/core/http/app.ts",
+			slot: "imports",
+			content: 'import { mergeAuthOpenApi } from "#core/auth/openapi";',
+		},
+		{
+			file: "src/core/http/app.ts",
+			slot: "openapi",
+			content: 'if (name === "api") await mergeAuthOpenApi(document, `${API_PREFIX}/auth`);',
 		},
 		{
 			file: "src/core/http/app.ts",

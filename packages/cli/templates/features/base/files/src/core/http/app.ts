@@ -43,7 +43,12 @@ export function createHttpApp(name: AppName, options: { title: string }) {
 		if (definition.app === name) app.route(`${API_PREFIX}${definition.basePath}`, definition.router);
 	}
 
-	app.doc31("/openapi.json", { openapi: "3.1.0", info: { title: options.title, version: "1.0.0" } });
+	const openApiConfig = { openapi: "3.1.0", info: { title: options.title, version: "1.0.0" } } as const;
+	app.get("/openapi.json", async (c) => {
+		const document = app.getOpenAPI31Document(openApiConfig);
+		// tatara:slot openapi
+		return c.json(document);
+	});
 	app.get("/docs", Scalar({ url: "/openapi.json", pageTitle: options.title }));
 
 	app.onError(errorHandler);
