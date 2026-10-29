@@ -364,8 +364,32 @@ export const authOrgs: Feature = {
 		{
 			file: "src/core/auth/auth.ts",
 			slot: "plugins",
+			unless: ["authz"],
 			content: "organization(),\nadmin(),",
 			order: 900,
+		},
+		{
+			file: "src/core/auth/auth.ts",
+			slot: "plugins",
+			when: ["authz"],
+			content: [
+				"organization({",
+				"\torganizationHooks: {",
+				"\t\t// authz rows outlive better-auth's member row; without this, re-adding restores old roles",
+				"\t\tafterRemoveMember: async ({ member }) => {",
+				"\t\t\tawait removeMemberAccess(member.organizationId, member.userId);",
+				"\t\t},",
+				"\t},",
+				"}),",
+				"admin(),",
+			].join("\n"),
+			order: 900,
+		},
+		{
+			file: "src/core/auth/auth.ts",
+			slot: "imports",
+			when: ["authz"],
+			content: 'import { removeMemberAccess } from "#core/authz/services/members";',
 		},
 		{
 			file: "tests/helpers/auth.ts",
@@ -403,7 +427,7 @@ export const keycloak: Feature = {
 		},
 		{
 			key: "KEYCLOAK_URL",
-			schema: 'z.url().default("http://localhost:8080")',
+			schema: 'localDefault(z.url(), "http://localhost:8080")',
 			example: "http://localhost:8080",
 		},
 		{

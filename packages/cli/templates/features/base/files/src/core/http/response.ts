@@ -49,6 +49,11 @@ export function jsonContent<T extends z.ZodType>(schema: T, description: string)
 	return { content: { "application/json": { schema } }, description };
 }
 
+/** A required JSON request body. Without `required`, a request with no body skips validation. */
+export function jsonBody<T extends z.ZodType>(schema: T, description: string) {
+	return { ...jsonContent(schema, description), required: true };
+}
+
 const ERROR_DESCRIPTIONS = {
 	400: "Invalid request",
 	401: "Authentication required",

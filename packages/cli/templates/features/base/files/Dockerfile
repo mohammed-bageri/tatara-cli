@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # One image for every entrypoint. Default: the API.
 # Other processes: override the command, e.g. `node dist/apps/worker/index.mjs`.
 FROM node:24-alpine AS base

@@ -19,7 +19,7 @@ import {
 	userParams,
 	userRoleParams,
 } from "#core/authz/validators";
-import { errorResponses, jsonContent, success, successSchema } from "#core/http/response";
+import { errorResponses, jsonBody, jsonContent, success, successSchema } from "#core/http/response";
 import { createRouter, defineRoutes } from "#core/http/routes";
 import { catalog } from "#generated/permissions";
 
@@ -100,7 +100,7 @@ router.openapi(
 		summary: "Create a custom role",
 		middleware: [requirePermission("role:create")] as const,
 		security: [{ bearerAuth: ["role:create"] }],
-		request: { body: jsonContent(createRoleSchema, "The role") },
+		request: { body: jsonBody(createRoleSchema, "The role") },
 		responses: {
 			201: jsonContent(successSchema(roleSchema), "Created"),
 			...errorResponses(400, 409),
@@ -122,7 +122,7 @@ router.openapi(
 		summary: "Update a custom role",
 		middleware: [requirePermission("role:update")] as const,
 		security: [{ bearerAuth: ["role:update"] }],
-		request: { params: idParams, body: jsonContent(updateRoleSchema, "Fields to change") },
+		request: { params: idParams, body: jsonBody(updateRoleSchema, "Fields to change") },
 		responses: {
 			200: jsonContent(successSchema(roleSchema), "Updated"),
 			...errorResponses(400, 404),
@@ -179,7 +179,7 @@ router.openapi(
 		summary: "Assign a role to a member",
 		middleware: [requirePermission("member:update")] as const,
 		security: [{ bearerAuth: ["member:update"] }],
-		request: { params: userParams, body: jsonContent(z.object({ roleId: z.string() }), "Role") },
+		request: { params: userParams, body: jsonBody(z.object({ roleId: z.string() }), "Role") },
 		responses: {
 			200: jsonContent(successSchema(z.object({ assigned: z.boolean() })), "Assigned"),
 			...errorResponses(404),
@@ -225,7 +225,7 @@ router.openapi(
 		summary: "Grant or deny one permission to a member",
 		middleware: [requirePermission("member:update")] as const,
 		security: [{ bearerAuth: ["member:update"] }],
-		request: { params: userParams, body: jsonContent(overlayInputSchema, "Overlay") },
+		request: { params: userParams, body: jsonBody(overlayInputSchema, "Overlay") },
 		responses: {
 			201: jsonContent(successSchema(z.object({ id: z.string() })), "Created"),
 			...errorResponses(400),

@@ -53,14 +53,14 @@ export const base: Feature = {
 		},
 		{
 			key: "APP_URL",
-			schema: 'z.url().default("http://localhost:3000")',
+			schema: 'localDefault(z.url(), "http://localhost:3000")',
 			example: "http://localhost:3000",
 			comment: "Public URL of the API",
 		},
 		{
 			key: "CORS_ORIGINS",
 			schema:
-				'z.string().default("http://localhost:5173").transform((v) => v.split(",").map((o) => o.trim()).filter(Boolean))',
+				'localDefault(z.string(), "http://localhost:5173").transform((v) => v.split(",").map((o) => o.trim()).filter(Boolean))',
 			example: "http://localhost:5173",
 			comment: "Comma-separated browser origins allowed to call the API",
 		},
@@ -87,7 +87,7 @@ export const pnpm: Feature = {
 			slot: "docker-build",
 			content: [
 				"COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./",
-				"RUN pnpm install --frozen-lockfile",
+				"RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store --mount=type=cache,id=pnpm-cache,target=/root/.cache/pnpm pnpm install --frozen-lockfile",
 				"COPY . .",
 				"RUN pnpm run build",
 			].join("\n"),
@@ -98,7 +98,8 @@ export const pnpm: Feature = {
 			order: 0,
 			content: [
 				"COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./",
-				"RUN pnpm install --frozen-lockfile --prod",
+				"# cache mounts keep the package store out of the image",
+				"RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store --mount=type=cache,id=pnpm-cache,target=/root/.cache/pnpm pnpm install --frozen-lockfile --prod",
 				"COPY --from=build /app/dist ./dist",
 			].join("\n"),
 		},
@@ -127,7 +128,7 @@ export const npm: Feature = {
 			slot: "docker-build",
 			content: [
 				"COPY package.json package-lock.json ./",
-				"RUN npm ci",
+				"RUN --mount=type=cache,target=/root/.npm npm ci",
 				"COPY . .",
 				"RUN npm run build",
 			].join("\n"),
@@ -138,7 +139,7 @@ export const npm: Feature = {
 			order: 0,
 			content: [
 				"COPY package.json package-lock.json ./",
-				"RUN npm ci --omit=dev",
+				"RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev",
 				"COPY --from=build /app/dist ./dist",
 			].join("\n"),
 		},
@@ -167,7 +168,7 @@ export const bun: Feature = {
 			slot: "docker-build",
 			content: [
 				"COPY package.json bun.lock ./",
-				"RUN bun install --frozen-lockfile",
+				"RUN --mount=type=cache,target=/root/.bun/install/cache bun install --frozen-lockfile",
 				"COPY . .",
 				"RUN bun run build",
 			].join("\n"),
@@ -178,7 +179,7 @@ export const bun: Feature = {
 			order: 0,
 			content: [
 				"COPY package.json bun.lock ./",
-				"RUN bun install --frozen-lockfile --production",
+				"RUN --mount=type=cache,target=/root/.bun/install/cache bun install --frozen-lockfile --production",
 				"COPY --from=build /app/dist ./dist",
 			].join("\n"),
 		},

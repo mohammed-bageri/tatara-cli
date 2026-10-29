@@ -6,7 +6,7 @@ import { ValidationError } from "#core/http/errors";
 export const validationHook: Hook<any, AppEnv, any, any> = (result) => {
 	if (!result.success) {
 		throw new ValidationError(
-			"Invalid request",
+			undefined,
 			result.error.issues.map((issue) => ({
 				path: issue.path.join("."),
 				message: issue.message,

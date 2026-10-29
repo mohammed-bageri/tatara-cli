@@ -15,8 +15,12 @@ export const AUDIT_CHANGE_TYPES = [
 	"member_role_revoked",
 	"overlay_granted",
 	"overlay_revoked",
+	"member_removed",
 ] as const;
 export type AuditChangeType = (typeof AUDIT_CHANGE_TYPES)[number];
+
+/** Audit actor for changes made by the system rather than a user (e.g. org membership hooks). */
+export const SYSTEM_ACTOR = "system";
 
 /** Org used when the principal has none (single-tenant apps, users without an active org). */
 export const DEFAULT_ORG_ID = "default";

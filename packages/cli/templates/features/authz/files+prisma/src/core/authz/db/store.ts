@@ -168,6 +168,13 @@ export const store: AuthzStore = {
 		return count > 0;
 	},
 
+	async removeMember(orgId, userId) {
+		const [roles, overlays] = await db.$transaction([
+			db.authzMemberRole.deleteMany({ where: { orgId, userId } }),
+			db.authzOverlay.deleteMany({ where: { orgId, userId } }),
+		]);
+		return { roles: roles.count, overlays: overlays.count };
+	},
 	async listOverlays(orgId, userId) {
 		const rows = await db.authzOverlay.findMany({
 			where: { orgId, userId },

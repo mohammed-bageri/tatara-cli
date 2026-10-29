@@ -1,5 +1,5 @@
 import { invalidateMember } from "#core/authz/cache";
-import type { OverlayEffect, Scope } from "#core/authz/constants";
+import { type OverlayEffect, type Scope, SYSTEM_ACTOR } from "#core/authz/constants";
 import { store } from "#core/authz/db/store";
 import { audit } from "#core/authz/services/audit";
 import { validateGrants } from "#core/authz/services/grants";
@@ -29,6 +29,22 @@ export async function revokeRole(actorId: string, orgId: string, userId: string,
 	if (!removed) throw new NotFoundError("Role assignment");
 	invalidateMember(userId, orgId);
 	await audit({ orgId, actorId, targetUserId: userId, changeType: "member_role_revoked", before: { roleId } });
+}
+
+/** Removes all of a user's access in an org; called when they stop being a member. */
+export async function removeMemberAccess(orgId: string, userId: string, actorId = SYSTEM_ACTOR) {
+	const removed = await store.removeMember(orgId, userId);
+	invalidateMember(userId, orgId);
+	if (removed.roles + removed.overlays > 0) {
+		await audit({
+			orgId,
+			actorId,
+			targetUserId: userId,
+			changeType: "member_removed",
+			before: removed,
+		});
+	}
+	return removed;
 }
 
 export interface OverlayInput {

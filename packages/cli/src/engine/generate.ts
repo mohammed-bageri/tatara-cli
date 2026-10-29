@@ -127,6 +127,13 @@ export function envModule(vars: EnvVar[]): string {
 	return `import { createEnv } from "@t3-oss/env-core";
 import { z } from "zod";
 
+const production = process.env.NODE_ENV === "production";
+
+/** A default for local development; production must set the value explicitly. */
+function localDefault<T extends z.ZodType>(schema: T, value: z.input<T>): T {
+	return production ? schema : (schema.default(value as never) as unknown as T);
+}
+
 /** The only place that reads process.env. Add new variables here and to .env.example. */
 export const env = createEnv({
 	server: {

@@ -194,6 +194,19 @@ export const store: AuthzStore = {
 		return true;
 	},
 
+	async removeMember(orgId, userId) {
+		const roleWhere = and(eq(authzMemberRoles.orgId, orgId), eq(authzMemberRoles.userId, userId));
+		const overlayWhere = and(eq(authzOverlays.orgId, orgId), eq(authzOverlays.userId, userId));
+		// count first: MySQL has no RETURNING
+		return db.transaction(async (tx) => {
+			const [roles] = await tx.select({ n: count() }).from(authzMemberRoles).where(roleWhere);
+			const [overlays] = await tx.select({ n: count() }).from(authzOverlays).where(overlayWhere);
+			await tx.delete(authzMemberRoles).where(roleWhere);
+			await tx.delete(authzOverlays).where(overlayWhere);
+			return { roles: roles?.n ?? 0, overlays: overlays?.n ?? 0 };
+		});
+	},
+
 	async listOverlays(orgId, userId) {
 		const rows = await db
 			.select()

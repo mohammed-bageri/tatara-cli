@@ -1,6 +1,7 @@
 import { createRoute } from "@hono/zod-openapi";
 import {
 	errorResponses,
+	jsonBody,
 	jsonContent,
 	paginated,
 	paginatedSchema,
@@ -72,7 +73,7 @@ router.openapi(
 		tags,
 		summary: "Create a __nameKebab__",
 		// tatara:slot guard-create
-		request: { body: jsonContent(create__namePascal__Schema, "The new __nameKebab__") },
+		request: { body: jsonBody(create__namePascal__Schema, "The new __nameKebab__") },
 		responses: {
 			201: jsonContent(successSchema(__nameCamel__Schema), "Created"),
 			...errorResponses(400),
@@ -91,7 +92,7 @@ router.openapi(
 		// tatara:slot guard-update
 		request: {
 			params: __nameCamel__ParamsSchema,
-			body: jsonContent(update__namePascal__Schema, "Fields to change"),
+			body: jsonBody(update__namePascal__Schema, "Fields to change"),
 		},
 		responses: {
 			200: jsonContent(successSchema(__nameCamel__Schema), "Updated"),

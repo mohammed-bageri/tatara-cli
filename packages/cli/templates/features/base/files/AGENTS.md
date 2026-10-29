@@ -45,6 +45,8 @@ __PM_EXEC__ tatara routes                # every route and what protects it
 ## HTTP
 
 - Every route uses `createRoute` from `@hono/zod-openapi`, with request and response schemas.
+  Declare request bodies with `jsonBody(schema, description)` (required; a missing body is a 400),
+  responses with `jsonContent(...)`.
   The spec is served at `/openapi.json`, the reference UI at `/docs`.
 - Responses use the envelope: `success(data)`, `paginated(items, page, pageSize, total)`.
   Errors are thrown as `AppError` subclasses (`NotFoundError`, `ConflictError`,

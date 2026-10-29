@@ -77,6 +77,8 @@ export interface AuthzStore {
 	memberRoles(orgId: string, userId: string): Promise<RoleRow[]>;
 	assignRole(orgId: string, userId: string, roleId: string, by: string | null): Promise<boolean>;
 	revokeRole(orgId: string, userId: string, roleId: string): Promise<boolean>;
+	/** Deletes every role assignment and overlay the user has in the org. */
+	removeMember(orgId: string, userId: string): Promise<{ roles: number; overlays: number }>;
 	listOverlays(orgId: string, userId: string): Promise<OverlayRow[]>;
 	addOverlay(input: Omit<OverlayRow, "id" | "createdAt">): Promise<string>;
 	removeOverlay(orgId: string, userId: string, overlayId: string): Promise<OverlayRow | null>;

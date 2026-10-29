@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineCommand } from "#core/commands/define";
+import { defineCommand, flag } from "#core/commands/define";
 import { env } from "#core/config/env";
 import { dropAllTables } from "#core/db/admin";
 import { migrateDatabase } from "#core/db/migrate";
@@ -7,7 +7,7 @@ import { migrateDatabase } from "#core/db/migrate";
 export default defineCommand({
 	name: "db:reset",
 	description: "Drop every table and re-apply migrations (refuses to run in production)",
-	args: z.object({ force: z.coerce.boolean().default(false) }),
+	args: z.object({ force: flag() }),
 	async run({ force }, { logger }) {
 		if (env.NODE_ENV === "production" && !force) {
 			throw new Error("db:reset refuses to run with NODE_ENV=production (pass --force to override)");

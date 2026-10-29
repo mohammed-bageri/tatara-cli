@@ -182,7 +182,7 @@ export const storage: Feature = {
 	env: [
 		{
 			key: "STORAGE_DRIVER",
-			schema: 'z.enum(["local", "s3"]).default("local")',
+			schema: 'localDefault(z.enum(["local", "s3"]), "local")',
 			example: "s3",
 			test: "local",
 		},
@@ -221,6 +221,13 @@ export const storage: Feature = {
 	},
 	composeVolumes: ["storage-data"],
 	slots: [
+		{
+			file: "Dockerfile",
+			slot: "docker-runtime",
+			order: 50,
+			// the image runs as node; STORAGE_DRIVER=local writes to STORAGE_LOCAL_DIR (.storage)
+			content: "RUN mkdir -p .storage && chown node:node .storage",
+		},
 		{ file: ".gitignore", slot: "ignore", content: ".storage/" },
 		{
 			file: "AGENTS.md",
@@ -244,13 +251,13 @@ export const email: Feature = {
 	env: [
 		{
 			key: "EMAIL_DRIVER",
-			schema: 'z.enum(["smtp", "console"]).default("console")',
+			schema: 'localDefault(z.enum(["smtp", "console"]), "console")',
 			example: "smtp",
 			test: "console",
 		},
 		{
 			key: "SMTP_URL",
-			schema: 'z.string().default("smtp://localhost:1025")',
+			schema: 'localDefault(z.string(), "smtp://localhost:1025")',
 			example: "smtp://localhost:1025",
 		},
 		{
@@ -311,7 +318,8 @@ export const i18n: Feature = {
 		{
 			file: "src/core/http/middleware/error-handler.ts",
 			slot: "error-message",
-			content: 'message = t(c.get("language"), `errors.${err.code}`, message);',
+			content:
+				'if (err.translatable) message = t(c.get("language"), `errors.${err.code}`, message);',
 		},
 		{
 			file: "AGENTS.md",
