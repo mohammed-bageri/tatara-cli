@@ -2,8 +2,8 @@ export interface Scenario {
 	name: string;
 	orm: "drizzle" | "prisma" | "none";
 	database: "postgres" | "mysql" | "none";
-	auth: "better-auth" | "keycloak" | "none";
-	authMethods?: ("email-otp" | "phone-otp" | "password" | "orgs")[];
+	auth: "better-auth" | "none";
+	authMethods?: ("email-otp" | "phone-otp" | "password" | "keycloak" | "orgs")[];
 	addons: ("authz" | "jobs" | "admin" | "storage" | "email" | "i18n")[];
 	pm: "pnpm" | "npm" | "bun";
 	flags: string[];
@@ -46,7 +46,8 @@ for (const orm of ["drizzle", "prisma"] as const) {
 			scenario(`${short}-keycloak-full`, {
 				orm,
 				database,
-				auth: "keycloak",
+				auth: "better-auth",
+				authMethods: ["keycloak"],
 				addons: [...ALL_ADDONS],
 				pm: "pnpm",
 			}),
@@ -119,8 +120,18 @@ export const SCENARIOS: Scenario[] = [
 	scenario("bun-dz-pg-keycloak", {
 		orm: "drizzle",
 		database: "postgres",
-		auth: "keycloak",
+		auth: "better-auth",
+		authMethods: ["keycloak"],
 		addons: ["authz"],
 		pm: "bun",
+	}),
+	// Keycloak tokens next to password sign-in, with organizations recorded from the token
+	scenario("ba-password-keycloak-orgs", {
+		orm: "prisma",
+		database: "postgres",
+		auth: "better-auth",
+		authMethods: ["password", "keycloak", "orgs"],
+		addons: ["authz", "admin"],
+		pm: "pnpm",
 	}),
 ];

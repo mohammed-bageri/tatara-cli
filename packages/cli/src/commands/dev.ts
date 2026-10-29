@@ -119,7 +119,7 @@ export async function dev(project: Project, flags: DevFlags = {}): Promise<numbe
 		urls.push(`Mailpit     http://localhost:${env.MAILPIT_UI_PORT ?? "8025"}`);
 	if (project.has("storage"))
 		urls.push(`Storage UI  http://localhost:${env.STORAGE_CONSOLE_PORT ?? "9001"}`);
-	if (project.has("keycloak"))
+	if (project.has("auth-keycloak"))
 		urls.push(`Keycloak    http://localhost:${env.KEYCLOAK_PORT ?? "8080"}/admin (admin/admin)`);
 	console.log(`\n${urls.map((u) => `  ${pc.green("➜")} ${u}`).join("\n")}\n`);
 

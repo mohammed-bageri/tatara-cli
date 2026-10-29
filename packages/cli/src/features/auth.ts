@@ -403,19 +403,63 @@ export const authOrgs: Feature = {
 
 const KEYCLOAK_AGENTS = `### Keycloak
 
-- The API is a resource server: it verifies Keycloak access tokens (signature, issuer,
-  audience \`__APP_NAME__-api\`, expiry). Login happens in the frontend via OIDC (PKCE) against
-  the \`__APP_NAME__-web\` client.
-- Roles come from the token's \`roles\` claim (realm roles) and client roles for the API.
+- The API also accepts Keycloak access tokens (\`Authorization: Bearer <token>\`). The
+  \`keycloakTokens()\` better-auth plugin (\`src/core/auth/keycloak-plugin.ts\`) verifies signature,
+  issuer, audience \`__APP_NAME__-api\` and expiry; login happens in the frontend via OIDC (PKCE)
+  against the \`__APP_NAME__-web\` client.
+- The token's subject is the user id. The user (and a \`keycloak\` account) is created in
+  better-auth's tables on first use; a token whose email already belongs to another account is
+  rejected. Service-account tokens become \`kind: "service"\` principals with no user row.
+- Roles come from the token (realm roles, \`roles\`, and client roles for the API); a role named like
+  a built-in authz role grants it. The organization comes from the \`organization\` claim.
 - Local dev realm: \`keycloak/realm.json\` (users alice/alice with admin, bob/bob).
   \`__PM_EXEC__ tatara run keycloak:token --user alice\` prints a token for curl.
-- Tests sign tokens with a local key; see \`#tests/helpers/auth\`.
+- Tests sign tokens with a local key: \`keycloakToken()\` from \`#tests/helpers/auth\`.
 `;
 
-export const keycloak: Feature = {
-	id: "keycloak",
-	kind: "auth",
-	label: "Keycloak",
+const KEYCLOAK_TEST_HELPER = [
+	'const { publicKey, privateKey } = await generateKeyPair("RS256");',
+	"setKeySource(async (header) => {",
+	'\tif (header.kid !== "test") throw new Error("unknown key");',
+	"\treturn publicKey;",
+	"});",
+	"",
+	"export interface KeycloakTokenOptions {",
+	"\tsub?: string;",
+	"\temail?: string;",
+	"\temailVerified?: boolean;",
+	"\troles?: string[];",
+	"\torganization?: string[] | Record<string, unknown>;",
+	"\tusername?: string;",
+	"\tissuer?: string;",
+	"\taudience?: string;",
+	"\texpiresIn?: string | number;",
+	"}",
+	"",
+	"/** Signs an access token the API accepts, as if Keycloak issued it. */",
+	"export async function keycloakToken(options: KeycloakTokenOptions = {}): Promise<string> {",
+	"\tconst sub = options.sub ?? newId();",
+	"\treturn new SignJWT({",
+	"\t\temail: options.email ?? `user-${sub}@example.com`,",
+	"\t\temail_verified: options.emailVerified ?? true,",
+	"\t\tpreferred_username: options.username ?? `user-${sub.slice(0, 8)}`,",
+	'\t\troles: options.roles ?? ["user"],',
+	"\t\t...(options.organization ? { organization: options.organization } : {}),",
+	"\t})",
+	'\t\t.setProtectedHeader({ alg: "RS256", kid: "test" })',
+	"\t\t.setSubject(sub)",
+	"\t\t.setIssuer(options.issuer ?? issuer)",
+	"\t\t.setAudience(options.audience ?? env.KEYCLOAK_AUDIENCE)",
+	"\t\t.setIssuedAt()",
+	'\t\t.setExpirationTime(options.expiresIn ?? "5m")',
+	"\t\t.sign(privateKey);",
+	"}",
+].join("\n");
+
+export const authKeycloak: Feature = {
+	id: "auth-keycloak",
+	kind: "auth-method",
+	label: "Keycloak tokens",
 	dependencies: ["jose"],
 	env: [
 		{
@@ -468,18 +512,64 @@ export const keycloak: Feature = {
 	},
 	slots: [
 		{
-			file: "src/core/auth/users.ts",
-			slot: "upsert",
-			when: ["drizzle", "postgres"],
-			content:
-				"await db\n\t.insert(users)\n\t.values(values)\n\t.onConflictDoUpdate({ target: users.id, set: { email: values.email, name: values.name, updatedAt: new Date() } });",
+			file: "src/core/auth/auth.ts",
+			slot: "imports",
+			content: 'import { keycloakTokens } from "#core/auth/keycloak-plugin";',
 		},
 		{
-			file: "src/core/auth/users.ts",
-			slot: "upsert",
-			when: ["drizzle", "mysql"],
-			content:
-				"await db\n\t.insert(users)\n\t.values(values)\n\t.onDuplicateKeyUpdate({ set: { email: values.email, name: values.name } });",
+			file: "src/core/auth/auth.ts",
+			slot: "plugins",
+			unless: ["auth-orgs"],
+			content: "keycloakTokens(),",
+			order: 800,
+		},
+		{
+			file: "src/core/auth/auth.ts",
+			slot: "plugins",
+			when: ["auth-orgs"],
+			content: "keycloakTokens({ organizations: true }),",
+			order: 800,
+		},
+		{
+			file: "src/core/auth/principal.ts",
+			slot: "no-session",
+			content: [
+				"if (!session) {",
+				'\tconst header = c.req.header("authorization");',
+				'\tconst token = header?.startsWith("Bearer ") ? header.slice(7) : undefined;',
+				"\tconst principal = token ? await auth.api.verifyKeycloakToken({ body: { token } }) : null;",
+				'\tif (principal) c.set("principal", principal);',
+				"}",
+			].join("\n"),
+		},
+		{
+			file: "tests/helpers/auth.ts",
+			slot: "imports",
+			content: 'import { generateKeyPair, SignJWT } from "jose";',
+		},
+		{
+			file: "tests/helpers/auth.ts",
+			slot: "imports",
+			content: 'import { issuer, setKeySource } from "#core/auth/keycloak";',
+		},
+		{
+			file: "tests/helpers/auth.ts",
+			slot: "imports",
+			content: 'import { env } from "#core/config/env";',
+		},
+		{ file: "tests/helpers/auth.ts", slot: "helpers", content: KEYCLOAK_TEST_HELPER },
+		{
+			// without organizations users have no role column; roles come from the token
+			file: "tests/helpers/auth.ts",
+			slot: "authenticate",
+			unless: ["auth-orgs"],
+			content: [
+				"if (options.roles) {",
+				"\tconst sub = newId();",
+				"\tconst token = await keycloakToken({ sub, roles: options.roles, email: options.email });",
+				"\treturn { userId: sub, headers: { authorization: `Bearer ${token}` } };",
+				"}",
+			].join("\n"),
 		},
 		{ file: "AGENTS.md", slot: "sections", content: KEYCLOAK_AGENTS },
 	],

@@ -36,5 +36,6 @@ export const attachPrincipal = createMiddleware<AppEnv>(async (c, next) => {
 			claims: {},
 		});
 	}
+	// tatara:slot no-session
 	await next();
 });

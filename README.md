@@ -30,7 +30,7 @@ the generators, pinned per project.
 |---|---|
 | ORM | Drizzle, Prisma |
 | Database | PostgreSQL, MySQL |
-| Auth | better-auth (email OTP, phone OTP, email + password, organizations + roles), Keycloak (resource server), none |
+| Auth | better-auth with any of: email OTP, phone OTP, email + password, Keycloak access tokens (resource server), organizations + roles; or none. `--auth keycloak` is shorthand for `--auth better-auth --auth-methods keycloak` |
 | Add-ons | permission system (roles, scopes, overlays, audit), jobs + cron (BullMQ), admin API app, storage (S3 / local), email (SMTP / Mailpit), i18n |
 | Package manager | pnpm, npm, bun (runtime is Node 24) |
 

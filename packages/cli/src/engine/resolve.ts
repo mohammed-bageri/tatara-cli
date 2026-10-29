@@ -26,7 +26,7 @@ export function validateOptions(input: AppOptions): AppOptions {
 		const signIn = options.authMethods.filter((m) => m !== "orgs");
 		if (signIn.length === 0) {
 			throw new OptionsError(
-				"better-auth needs at least one sign-in method: email-otp, phone-otp or password.",
+				"better-auth needs at least one sign-in method: email-otp, phone-otp, password or keycloak.",
 			);
 		}
 	} else if (options.authMethods.length > 0) {
@@ -42,10 +42,11 @@ export function validateOptions(input: AppOptions): AppOptions {
 		if (
 			addon === "admin" &&
 			options.auth === "better-auth" &&
-			!options.authMethods.includes("orgs")
+			!options.authMethods.includes("orgs") &&
+			!options.authMethods.includes("keycloak")
 		) {
 			throw new OptionsError(
-				'The admin add-on with better-auth needs the "orgs" method (it provides user roles).',
+				'The admin add-on with better-auth needs the "orgs" or "keycloak" method (they provide user roles).',
 			);
 		}
 	}

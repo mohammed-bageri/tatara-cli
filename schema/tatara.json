@@ -20,10 +20,10 @@
 		"name": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
 		"orm": { "enum": ["drizzle", "prisma", "none"] },
 		"database": { "enum": ["postgres", "mysql", "none"] },
-		"auth": { "enum": ["better-auth", "keycloak", "none"] },
+		"auth": { "enum": ["better-auth", "none"] },
 		"authMethods": {
 			"type": "array",
-			"items": { "enum": ["email-otp", "phone-otp", "password", "orgs"] },
+			"items": { "enum": ["email-otp", "phone-otp", "password", "keycloak", "orgs"] },
 			"uniqueItems": true
 		},
 		"addons": {

@@ -17,7 +17,7 @@ const PACKAGES: Record<string, string[]> = {
 	drizzle: ["drizzle-orm", "drizzle-kit"],
 	prisma: ["@prisma/client", "prisma"],
 	"better-auth": ["better-auth"],
-	keycloak: ["jose"],
+	"auth-keycloak": ["jose"],
 	jobs: ["bullmq", "ioredis"],
 };
 

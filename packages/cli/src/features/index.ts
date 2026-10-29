@@ -2,11 +2,11 @@ import { admin, authz, email, i18n, jobs, storage } from "./addons.ts";
 import {
 	auth,
 	authEmailOtp,
+	authKeycloak,
 	authOrgs,
 	authPassword,
 	authPhoneOtp,
 	betterAuth,
-	keycloak,
 } from "./auth.ts";
 import { base, bun, npm, pnpm } from "./base.ts";
 import { db, drizzle, mysql, postgres, prisma } from "./database.ts";
@@ -28,7 +28,7 @@ export const FEATURES: Record<string, Feature> = Object.fromEntries(
 		authPhoneOtp,
 		authPassword,
 		authOrgs,
-		keycloak,
+		authKeycloak,
 		auth,
 		authz,
 		jobs,

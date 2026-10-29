@@ -26,7 +26,10 @@ program
 	.argument("[dir]", "directory to create")
 	.option("--orm <orm>", "drizzle | prisma | none")
 	.option("--db <database>", "postgres | mysql | none")
-	.option("--auth <provider>", "better-auth | keycloak | none")
+	.option(
+		"--auth <provider>",
+		"better-auth | none (keycloak = better-auth with --auth-methods keycloak)",
+	)
 	.option("--auth-methods <list>", "email-otp,phone-otp,password,orgs (better-auth)")
 	.option("--addons <list>", "authz,jobs,admin,storage,email,i18n")
 	.option("--pm <pm>", "pnpm | npm | bun")

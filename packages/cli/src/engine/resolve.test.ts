@@ -22,12 +22,12 @@ describe("validateOptions", () => {
 		[{ orm: "none" as const }, /ORM and a database/],
 		[{ orm: "none" as const, database: "none" as const }, /needs a database/],
 		[{ authMethods: ["orgs" as const] }, /sign-in method/],
-		[{ auth: "keycloak" as const }, /only apply to better-auth/],
+		[{ auth: "none" as const, authMethods: ["password" as const] }, /only apply to better-auth/],
 		[
 			{ auth: "none" as const, authMethods: [], addons: ["authz" as const] },
 			/needs an auth provider/,
 		],
-		[{ addons: ["admin" as const] }, /"orgs" method/],
+		[{ addons: ["admin" as const] }, /"orgs" or "keycloak" method/],
 	])("rejects %o", (patch, message) => {
 		expect(() => validateOptions({ ...base, ...patch })).toThrow(OptionsError);
 		expect(() => validateOptions({ ...base, ...patch })).toThrow(message);

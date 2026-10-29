@@ -33,8 +33,16 @@ export interface NewFlags {
 
 const ORMS = ["drizzle", "prisma", "none"] as const;
 const DATABASES = ["postgres", "mysql", "none"] as const;
-const AUTHS = ["better-auth", "keycloak", "none"] as const;
-const METHODS = ["email-otp", "phone-otp", "password", "orgs"] as const;
+const AUTHS = ["better-auth", "none"] as const;
+const METHODS = ["email-otp", "phone-otp", "password", "keycloak", "orgs"] as const;
+
+/** `--auth keycloak` (before 0.1.2) is better-auth with the keycloak method. */
+function normalizeAuthFlags(flags: NewFlags): NewFlags {
+	if (flags.auth !== "keycloak") return flags;
+	const methods = new Set((flags.authMethods ?? "").split(",").filter(Boolean));
+	methods.add("keycloak");
+	return { ...flags, auth: "better-auth", authMethods: [...methods].join(",") };
+}
 const ADDONS = ["authz", "jobs", "admin", "storage", "email", "i18n"] as const;
 const PMS = ["pnpm", "npm", "bun"] as const;
 
@@ -110,7 +118,6 @@ async function prompt(name: string, flags: NewFlags): Promise<AppOptions> {
 						message: "Auth",
 						options: [
 							{ value: "better-auth", label: "better-auth", hint: "sign-in handled by the API" },
-							{ value: "keycloak", label: "Keycloak", hint: "API verifies Keycloak tokens" },
 							{ value: "none", label: "None" },
 						],
 					}),
@@ -128,6 +135,11 @@ async function prompt(name: string, flags: NewFlags): Promise<AppOptions> {
 							{ value: "email-otp", label: "Email OTP" },
 							{ value: "phone-otp", label: "Phone OTP" },
 							{ value: "password", label: "Email + password" },
+							{
+								value: "keycloak",
+								label: "Keycloak tokens",
+								hint: "API accepts Keycloak access tokens",
+							},
 							{
 								value: "orgs",
 								label: "Organizations + roles",
@@ -208,7 +220,8 @@ async function run(cmd: string, args: string[], cwd: string, label: string) {
 	spinner?.stop(label);
 }
 
-export async function newApp(dir: string | undefined, flags: NewFlags): Promise<string> {
+export async function newApp(dir: string | undefined, rawFlags: NewFlags): Promise<string> {
+	const flags = normalizeAuthFlags(rawFlags);
 	const interactive = !flags.yes && process.stdout.isTTY;
 	if (interactive) p.intro(pc.bold("tatara"));
 	let target = dir;

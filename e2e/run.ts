@@ -136,7 +136,7 @@ async function tokenFor(
 	who: "user" | "admin",
 ): Promise<string | undefined> {
 	if (s.auth === "none") return undefined;
-	if (s.auth === "keycloak") {
+	if (s.authMethods?.includes("keycloak")) {
 		const out = await run(
 			"node",
 			[
@@ -264,7 +264,7 @@ async function smoke(s: Scenario, dir: string, logDir: string): Promise<string[]
 		let crudToken = user;
 		if (s.addons.includes("authz") && user) {
 			const admin =
-				s.authMethods?.includes("orgs") || s.auth === "keycloak"
+				s.authMethods?.includes("orgs") || s.authMethods?.includes("keycloak")
 					? await tokenFor(s, base, dir, "admin")
 					: undefined;
 			if (admin) crudToken = admin;

@@ -26,6 +26,7 @@ export async function createTestUser(options: AsUserOptions = {}): Promise<strin
 export async function authenticate(
 	options: AsUserOptions = {},
 ): Promise<{ userId: string; headers: Record<string, string> }> {
+	// tatara:slot authenticate
 	const userId = await createTestUser(options);
 	const ctx = await auth.$context;
 	const session = await ctx.internalAdapter.createSession(userId);
@@ -38,3 +39,4 @@ export async function asUser(options: AsUserOptions = {}): Promise<Record<string
 	// tatara:slot as-user
 	return user.headers;
 }
+// tatara:slot helpers
