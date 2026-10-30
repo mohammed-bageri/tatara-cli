@@ -8,6 +8,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { join, resolve } from "node:path";
 import { parseEnv } from "node:util";
 import { hashTrackedFiles } from "../packages/cli/src/project/hashes.ts";
+import { packCli, run } from "./lib.ts";
 import { SCENARIOS, type Scenario } from "./scenarios.ts";
 
 const ROOT = resolve(import.meta.dirname, "..");
@@ -41,36 +42,6 @@ function args() {
 		keep: argv.includes("--keep"),
 		list: argv.includes("--list"),
 	};
-}
-
-function run(
-	cmd: string,
-	cmdArgs: string[],
-	options: { cwd: string; env?: NodeJS.ProcessEnv; timeoutMs?: number; log?: string },
-): Promise<{ code: number; out: string }> {
-	return new Promise((resolvePromise) => {
-		const child = spawn(cmd, cmdArgs, {
-			cwd: options.cwd,
-			env: { ...process.env, FORCE_COLOR: "0", ...options.env },
-		});
-		let out = "";
-		child.stdout.on("data", (d: Buffer) => {
-			out += d.toString();
-		});
-		child.stderr.on("data", (d: Buffer) => {
-			out += d.toString();
-		});
-		const timer = setTimeout(() => child.kill("SIGKILL"), options.timeoutMs ?? 15 * 60_000);
-		child.on("close", (code) => {
-			clearTimeout(timer);
-			if (options.log) writeFileSync(options.log, out, { flag: "a" });
-			resolvePromise({ code: code ?? 1, out });
-		});
-		child.on("error", (error) => {
-			clearTimeout(timer);
-			resolvePromise({ code: 1, out: `${out}\n${String(error)}` });
-		});
-	});
 }
 
 /** Moves every local port by `offset` and gives the compose project a unique name. */
@@ -582,14 +553,7 @@ async function main() {
 	mkdirSync(WORK, { recursive: true });
 
 	console.log("building and packing the CLI…");
-	const build = await run("pnpm", ["--filter", "@tatara/cli", "run", "build"], { cwd: ROOT });
-	if (build.code !== 0) throw new Error(build.out);
-	const pkgDir = join(WORK, "pkg");
-	rmSync(pkgDir, { recursive: true, force: true });
-	mkdirSync(pkgDir, { recursive: true });
-	const pack = await run("pnpm", ["pack", "--pack-destination", pkgDir], { cwd: CLI });
-	if (pack.code !== 0) throw new Error(pack.out);
-	const packed = join(pkgDir, readdirSync(pkgDir).find((f) => f.endsWith(".tgz")) ?? "");
+	const packed = await packCli(WORK);
 
 	if (
 		scenarios.some((s) => s.pm === "bun") &&
