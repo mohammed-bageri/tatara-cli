@@ -1,5 +1,5 @@
 import { ForbiddenError, UnauthorizedError } from "@tatara/http";
-import type { Context, MiddlewareHandler } from "hono";
+import type { Context, Env, MiddlewareHandler } from "hono";
 import { createMiddleware } from "hono/factory";
 
 export interface Principal {
@@ -40,21 +40,28 @@ interface PrincipalReader {
 	get(key: "principal"): Principal | null;
 }
 
-/** 401 unless the request carries a valid session or token. */
-export function requireAuth<E extends AuthEnv = AuthEnv>(): MiddlewareHandler<E> {
-	return createMiddleware<E>(async (c, next) => {
-		if (!c.get("principal")) throw new UnauthorizedError();
+// Typed as adding nothing to the env: a guard typed with its own env would erase the app's
+// context types in zod-openapi route handlers.
+function guard(check: (principal: Principal | null) => void): MiddlewareHandler<Env> {
+	const handler = createMiddleware<AuthEnv>(async (c, next) => {
+		check(c.get("principal"));
 		await next();
+	});
+	return handler as unknown as MiddlewareHandler<Env>;
+}
+
+/** 401 unless the request carries a valid session or token. */
+export function requireAuth(): MiddlewareHandler<Env> {
+	return guard((principal) => {
+		if (!principal) throw new UnauthorizedError();
 	});
 }
 
 /** 401 without a principal, 403 unless it has at least one of the roles. */
-export function requireRole<E extends AuthEnv = AuthEnv>(...roles: string[]): MiddlewareHandler<E> {
-	return createMiddleware<E>(async (c, next) => {
-		const principal = c.get("principal") as Principal | null;
+export function requireRole(...roles: string[]): MiddlewareHandler<Env> {
+	return guard((principal) => {
 		if (!principal) throw new UnauthorizedError();
 		if (!principal.roles.some((role) => roles.includes(role))) throw new ForbiddenError();
-		await next();
 	});
 }
 
