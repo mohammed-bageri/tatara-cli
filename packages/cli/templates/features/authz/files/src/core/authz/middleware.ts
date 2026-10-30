@@ -2,7 +2,7 @@ import { createMiddleware } from "hono/factory";
 import type { Scope } from "#core/authz/constants";
 import { checkPermission } from "#core/authz/resolver";
 import type { AppEnv } from "#core/http/context";
-import { ForbiddenError, UnauthorizedError } from "#core/http/errors";
+import { ForbiddenError, UnauthorizedError } from "@tatara/http";
 import type { PermissionKey } from "#generated/permissions";
 
 /**

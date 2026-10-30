@@ -1,6 +1,8 @@
-import { OpenAPIHono } from "@hono/zod-openapi";
+import {
+	createRouter as createTataraRouter,
+	type RouteDefinition as TataraRouteDefinition,
+} from "@tatara/http";
 import type { AppEnv } from "#core/http/context";
-import { validationHook } from "#core/http/middleware/validation";
 
 export const APP_NAMES = [
 	"api",
@@ -9,13 +11,7 @@ export const APP_NAMES = [
 
 export type AppName = (typeof APP_NAMES)[number];
 
-export interface RouteDefinition {
-	/** which HTTP app serves these routes */
-	app: AppName;
-	/** mounted under `/api` + basePath, e.g. "/notes" */
-	basePath: string;
-	router: OpenAPIHono<AppEnv>;
-}
+export type RouteDefinition = TataraRouteDefinition<AppName, AppEnv>;
 
 /** Default export of every `routes/*.routes.ts`; discovered by `tatara sync`. */
 export function defineRoutes(definition: RouteDefinition): RouteDefinition {
@@ -23,6 +19,6 @@ export function defineRoutes(definition: RouteDefinition): RouteDefinition {
 }
 
 /** A router for one routes file. Attach middleware per route or per path, never `use("*")`. */
-export function createRouter(): OpenAPIHono<AppEnv> {
-	return new OpenAPIHono<AppEnv>({ defaultHook: validationHook });
+export function createRouter() {
+	return createTataraRouter<AppEnv>();
 }

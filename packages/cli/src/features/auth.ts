@@ -99,6 +99,12 @@ export const betterAuth: Feature = {
 			content: 'import { mergeAuthOpenApi } from "#core/auth/openapi";',
 		},
 		{
+			// browser clients (e.g. WebGL builds) read the bearer token from this response header
+			file: "src/core/http/app.ts",
+			slot: "expose-headers",
+			content: '"set-auth-token",',
+		},
+		{
 			file: "src/core/http/app.ts",
 			slot: "openapi",
 			content: 'if (name === "api") await mergeAuthOpenApi(document, `${API_PREFIX}/auth`);',

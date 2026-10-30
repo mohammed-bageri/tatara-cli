@@ -1,5 +1,5 @@
 import { createRoute } from "@hono/zod-openapi";
-import { jsonContent, success, successSchema } from "#core/http/response";
+import { jsonContent, success, successSchema } from "@tatara/http";
 import { createRouter, defineRoutes } from "#core/http/routes";
 import { __moduleCamel__Status } from "#modules/__moduleKebab__/services/__moduleKebab__.service";
 import { __moduleCamel__StatusSchema } from "#modules/__moduleKebab__/validators/__moduleKebab__.validators";

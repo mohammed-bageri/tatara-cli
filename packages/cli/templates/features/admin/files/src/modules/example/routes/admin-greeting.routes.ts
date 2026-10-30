@@ -1,6 +1,6 @@
 import { createRoute } from "@hono/zod-openapi";
 import { currentPrincipal } from "#core/auth/middleware";
-import { errorResponses, jsonContent, success, successSchema } from "#core/http/response";
+import { errorResponses, jsonContent, success, successSchema } from "@tatara/http";
 import { createRouter, defineRoutes } from "#core/http/routes";
 import { greetingSchema } from "#modules/example/validators/greeting.validators";
 

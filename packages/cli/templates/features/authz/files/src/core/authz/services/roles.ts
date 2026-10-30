@@ -4,7 +4,7 @@ import { audit } from "#core/authz/services/audit";
 import { validateGrants } from "#core/authz/services/grants";
 import { SYSTEM_ROLE_KEYS } from "#core/authz/system-roles";
 import type { RoleRow } from "#core/authz/types";
-import { BusinessRuleError, ConflictError, NotFoundError } from "#core/http/errors";
+import { BusinessRuleError, ConflictError, NotFoundError } from "@tatara/http";
 
 export interface RoleInput {
 	key: string;

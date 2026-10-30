@@ -3,7 +3,7 @@ import { type OverlayEffect, type Scope, SYSTEM_ACTOR } from "#core/authz/consta
 import { store } from "#core/authz/db/store";
 import { audit } from "#core/authz/services/audit";
 import { validateGrants } from "#core/authz/services/grants";
-import { NotFoundError } from "#core/http/errors";
+import { NotFoundError } from "@tatara/http";
 
 export async function getMember(orgId: string, userId: string) {
 	const [roles, overlays] = await Promise.all([

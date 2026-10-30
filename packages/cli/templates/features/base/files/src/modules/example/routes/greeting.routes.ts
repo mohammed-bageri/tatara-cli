@@ -1,5 +1,5 @@
 import { createRoute } from "@hono/zod-openapi";
-import { errorResponses, jsonContent, success, successSchema } from "#core/http/response";
+import { errorResponses, jsonContent, success, successSchema } from "@tatara/http";
 import { createRouter, defineRoutes } from "#core/http/routes";
 import { greet } from "#modules/example/services/greeting.service";
 import {

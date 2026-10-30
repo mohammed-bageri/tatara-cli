@@ -19,7 +19,7 @@ import {
 	userParams,
 	userRoleParams,
 } from "#core/authz/validators";
-import { errorResponses, jsonBody, jsonContent, success, successSchema } from "#core/http/response";
+import { errorResponses, jsonBody, jsonContent, success, successSchema } from "@tatara/http";
 import { createRouter, defineRoutes } from "#core/http/routes";
 import { catalog } from "#generated/permissions";
 

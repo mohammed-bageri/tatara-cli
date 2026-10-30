@@ -311,12 +311,12 @@ export const i18n: Feature = {
 			content: "app.use(detectLanguage);",
 		},
 		{
-			file: "src/core/http/middleware/error-handler.ts",
+			file: "src/core/http/app.ts",
 			slot: "imports",
 			content: 'import { t } from "#core/i18n/index";',
 		},
 		{
-			file: "src/core/http/middleware/error-handler.ts",
+			file: "src/core/http/app.ts",
 			slot: "error-message",
 			content:
 				'if (err.translatable) message = t(c.get("language"), `errors.${err.code}`, message);',

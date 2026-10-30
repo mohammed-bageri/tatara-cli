@@ -1,5 +1,6 @@
+import { startServer } from "@tatara/http";
 import { app } from "#apps/api/app";
 import { env } from "#core/config/env";
-import { startServer } from "#core/http/server";
+import { logger } from "#core/logging/logger";
 
-startServer(app, env.PORT, "api");
+startServer(app, { port: env.PORT, name: "api", logger });

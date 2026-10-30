@@ -8,7 +8,7 @@ import {
 	paginationQuerySchema,
 	success,
 	successSchema,
-} from "#core/http/response";
+} from "@tatara/http";
 import { createRouter, defineRoutes } from "#core/http/routes";
 // tatara:slot imports
 import {

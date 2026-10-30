@@ -1,7 +1,7 @@
 import { createMiddleware } from "hono/factory";
 import type { Context } from "hono";
 import type { AppEnv, Principal } from "#core/http/context";
-import { ForbiddenError, UnauthorizedError } from "#core/http/errors";
+import { ForbiddenError, UnauthorizedError } from "@tatara/http";
 
 /** 401 unless the request carries a valid session or token. */
 export function requireAuth() {

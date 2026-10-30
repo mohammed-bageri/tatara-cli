@@ -1,8 +1,8 @@
 import { count, desc, eq } from "drizzle-orm";
 import { db, type Executor } from "#core/db/client";
 import { newId } from "#core/db/id";
-import { NotFoundError } from "#core/http/errors";
-import type { PaginationQuery } from "#core/http/response";
+import { NotFoundError } from "@tatara/http";
+import type { PaginationQuery } from "@tatara/http";
 import { __namePluralCamel__ } from "#modules/__moduleKebab__/db/__nameKebab__.schema";
 import type {
 	Create__namePascal__Input,

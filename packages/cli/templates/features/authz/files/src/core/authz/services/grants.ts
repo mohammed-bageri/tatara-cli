@@ -1,7 +1,7 @@
 import { assertGrantValid, InvalidGrantError, META_RESOURCES } from "#core/authz/catalog";
 import type { Scope } from "#core/authz/constants";
 import type { PermissionGrant } from "#core/authz/types";
-import { BusinessRuleError } from "#core/http/errors";
+import { BusinessRuleError } from "@tatara/http";
 import { catalog } from "#generated/permissions";
 
 /** Validates grants against the catalog; custom roles and overlays may not grant meta resources. */

@@ -1,57 +1,44 @@
-import { OpenAPIHono } from "@hono/zod-openapi";
-import { Scalar } from "@scalar/hono-api-reference";
-import { bodyLimit } from "hono/body-limit";
-import { cors } from "hono/cors";
-import { secureHeaders } from "hono/secure-headers";
+import { createApp, handleErrors, mountRoutes, serveOpenApi } from "@tatara/http";
 import { env } from "#core/config/env";
 import type { AppEnv } from "#core/http/context";
-import { runReadinessChecks } from "@tatara/core";
-import { errorHandler, notFoundHandler } from "#core/http/middleware/error-handler";
-import { requestContext } from "#core/http/middleware/request-context";
-import { validationHook } from "#core/http/middleware/validation";
 import type { AppName } from "#core/http/routes";
+import { logger } from "#core/logging/logger";
 import { routes } from "#generated/routes";
 // tatara:slot imports
 
 export const API_PREFIX = "/api";
 
+/** The app's HTTP wiring: plain Hono, with tatara's defaults from @tatara/http. */
 export function createHttpApp(name: AppName, options: { title: string }) {
-	const app = new OpenAPIHono<AppEnv>({ defaultHook: validationHook });
-
-	app.use(requestContext);
-	app.use(secureHeaders());
-	app.use(
-		cors({
-			origin: env.CORS_ORIGINS,
-			credentials: true,
-			allowHeaders: ["Content-Type", "Authorization", "X-Request-Id", "Accept-Language"],
-			exposeHeaders: ["X-Request-Id"],
-		}),
-	);
-	app.use(bodyLimit({ maxSize: env.BODY_LIMIT_BYTES }));
-	// tatara:slot middleware
-
-	app.get("/health", (c) => c.json({ status: "ok" }));
-	app.get("/ready", async (c) => {
-		const result = await runReadinessChecks();
-		return c.json(result, result.ready ? 200 : 503);
+	const app = createApp<AppEnv>({
+		logger,
+		cors: {
+			origins: env.CORS_ORIGINS,
+			exposeHeaders: [
+				"X-Request-Id",
+				// tatara:slot expose-headers
+			],
+		},
+		bodyLimitBytes: env.BODY_LIMIT_BYTES,
+		defaults: { principal: null, language: "en" },
 	});
+	// tatara:slot middleware
 
 	// tatara:slot routes
 
-	for (const definition of routes) {
-		if (definition.app === name) app.route(`${API_PREFIX}${definition.basePath}`, definition.router);
-	}
-
-	const openApiConfig = { openapi: "3.1.0", info: { title: options.title, version: "1.0.0" } } as const;
-	app.get("/openapi.json", async (c) => {
-		const document = app.getOpenAPI31Document(openApiConfig);
-		// tatara:slot openapi
-		return c.json(document);
+	mountRoutes(app, routes, { app: name, prefix: API_PREFIX });
+	serveOpenApi(app, {
+		title: options.title,
+		async extend(document) {
+			// tatara:slot openapi
+		},
 	});
-	app.get("/docs", Scalar({ url: "/openapi.json", pageTitle: options.title }));
-
-	app.onError(errorHandler);
-	app.notFound(notFoundHandler);
+	handleErrors(app, {
+		message(err, c) {
+			let message = err.message;
+			// tatara:slot error-message
+			return message;
+		},
+	});
 	return app;
 }
