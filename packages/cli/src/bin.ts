@@ -10,6 +10,7 @@ import { newApp } from "./commands/new.ts";
 import { listRoutes, printRoutes } from "./commands/routes.ts";
 import { sync } from "./commands/sync.ts";
 import { tinker } from "./commands/tinker.ts";
+import { printUpgrade, upgrade } from "./commands/upgrade.ts";
 import { verify } from "./commands/verify.ts";
 import { OptionsError } from "./engine/resolve.ts";
 import { GENERATORS, GeneratorError, type GeneratorKind, generate } from "./generators/index.ts";
@@ -177,6 +178,21 @@ program
 		const routes = await listRoutes(loadProject());
 		if (flags.json) console.log(JSON.stringify(routes, null, 2));
 		else printRoutes(routes);
+	});
+
+program
+	.command("upgrade")
+	.description("Run this CLI version's codemods on the app, then sync and verify")
+	.option("--dry-run", "show what would change without writing")
+	.option("--no-verify", "skip pnpm verify at the end")
+	.action(async (flags: { dryRun?: boolean; verify?: boolean }) => {
+		const project = loadProject();
+		const from = project.config.version;
+		const report = await upgrade(project, { dryRun: flags.dryRun });
+		printUpgrade(report, from, cliVersion());
+		if (!flags.dryRun && flags.verify !== false && !(await verify(loadProject()))) {
+			process.exitCode = 1;
+		}
 	});
 
 program

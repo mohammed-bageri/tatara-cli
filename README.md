@@ -51,6 +51,7 @@ pnpm tatara db generate --name add-invoices          # migration from schema cha
 pnpm tatara run --list                               # app commands; tatara run <command> --flag value
 pnpm tatara routes                                   # every route and what protects it
 pnpm tatara doctor                                   # toolchain, services, env, layout
+pnpm tatara upgrade                                  # after bumping @tatara/cli: codemods, sync, verify
 pnpm tatara tinker                                   # REPL with db and services loaded
 ```
 
