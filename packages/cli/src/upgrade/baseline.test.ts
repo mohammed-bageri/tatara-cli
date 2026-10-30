@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import type { Project, ProjectConfig } from "../project/config.ts";
 import { hashContent } from "../project/hashes.ts";
-import { createBaseline, releaseBaseline, renderRelease } from "./baseline.ts";
+import { createBaseline, type FileHashes, releaseBaseline, renderRelease } from "./baseline.ts";
 
 const minimalConfig: ProjectConfig = {
 	version: "0.1.1",
@@ -42,7 +42,7 @@ describe("createBaseline", () => {
 	it("falls back to released templates", async () => {
 		const baseline = createBaseline(project(), {
 			releasedVersions: async () => ["0.1.0", "0.1.1", "0.1.2", "0.1.3"],
-			releaseBaseline: async (version) =>
+			releaseBaseline: async (version): Promise<FileHashes> =>
 				version === "0.1.2" ? { "src/core/a.ts": hashContent("released\n") } : {},
 			cliVersion: "0.1.3",
 		});
