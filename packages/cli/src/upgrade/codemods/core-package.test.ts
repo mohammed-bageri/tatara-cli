@@ -205,4 +205,42 @@ describe("0.2.0 core-package codemod", () => {
 			),
 		).toEqual(snapshot);
 	});
+
+	it("lets pnpm install @tatara/* releases right away", async () => {
+		const project = app({
+			"pnpm-workspace.yaml":
+				"allowBuilds:\n  esbuild: true\nminimumReleaseAgeExclude:\n  - '@tatara/cli@0.1.0'\n",
+		});
+		await run(project);
+		const workspace = read(project, "pnpm-workspace.yaml");
+		expect(workspace).toContain('  - "@tatara/*"');
+		expect(workspace).toContain("  - '@tatara/cli@0.1.0'");
+		await run(loadProject(project.root));
+		expect(read(project, "pnpm-workspace.yaml").match(/@tatara\/\*/g)).toHaveLength(1);
+	});
+
+	it("adds the exclusion when the workspace file has none", async () => {
+		const project = app({ "pnpm-workspace.yaml": "allowBuilds:\n  esbuild: true\n" });
+		await run(project);
+		expect(read(project, "pnpm-workspace.yaml")).toContain(
+			'minimumReleaseAgeExclude:\n  - "@tatara/*"',
+		);
+	});
+
+	it("leaves call sites alone when the local lifecycle is kept", async () => {
+		const project = app({
+			"src/core/process/lifecycle.ts": "export function onShutdown() {} // mine\n",
+		});
+		await run(project);
+		expect(read(project, "src/core/http/server.ts")).toContain("handleSignals();");
+		const cli = read(project, "src/apps/cli/index.ts");
+		expect(cli).toContain("await shutdown(code);");
+		expect(cli).toContain("runCommand(commands, process.argv.slice(2), logger)");
+	});
+
+	it("warns that production log fields change", async () => {
+		const project = app();
+		const report = await run(project);
+		expect(report.notes.join("\n")).toMatch(/`message` \(was `msg`\)/);
+	});
 });

@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -26,6 +26,7 @@ interface Manifest {
 	repository?: { directory?: string };
 	engines?: { node?: string };
 	dependencies?: Record<string, string>;
+	peerDependencies?: Record<string, string>;
 }
 
 /** Every violated rule, as "<package>: <field> <problem>". */
@@ -54,6 +55,11 @@ export function conventionViolations(dir: string, packageDir: string): string[] 
 	for (const lib of OWNED_BY_APP) {
 		check(!pkg.dependencies?.[lib], `${lib} must be a peerDependency, not a dependency`);
 	}
+	// one @tatara/core per app: its shutdown and readiness registries must not be split
+	check(
+		!pkg.dependencies?.["@tatara/core"],
+		"@tatara/core must be a peerDependency, not a dependency",
+	);
 	return out;
 }
 
@@ -70,6 +76,29 @@ describe("library package conventions", () => {
 	it.each(libraries.length ? libraries : ["(none yet)"])("%s follows the conventions", (dir) => {
 		if (dir === "(none yet)") return;
 		expect(conventionViolations(dir, join(ROOT, "packages", dir))).toEqual([]);
+	});
+
+	it("rejects @tatara/core as a regular dependency", () => {
+		const temp = mkdtempSync(join(tmpdir(), "tatara-conv-"));
+		const dir = join(temp, "http");
+		cpSync(join(ROOT, "packages", "core"), dir, {
+			recursive: true,
+			filter: (src) => !src.includes("node_modules") && !src.includes("dist"),
+		});
+		const manifest = join(dir, "package.json");
+		const pkg = JSON.parse(readFileSync(manifest, "utf8")) as Record<string, unknown>;
+		writeFileSync(
+			manifest,
+			JSON.stringify({
+				...pkg,
+				name: "@tatara/http",
+				repository: { directory: "packages/http" },
+				dependencies: { "@tatara/core": "^0.1.0" },
+			}),
+		);
+		expect(conventionViolations("http", dir)).toContain(
+			"@tatara/http: @tatara/core must be a peerDependency, not a dependency",
+		);
 	});
 
 	it("new-package scaffolds a package that passes the conventions", () => {

@@ -32,3 +32,7 @@ This writes `packages/<name>/` with `package.json`, `tsconfig.json`, `tsdown.con
 **Libraries the app owns are peers.** Hono, better-auth, Prisma, Drizzle and Zod are
 `peerDependencies` (and `devDependencies` for the package's own tests). The app picks their
 versions, and there is only one copy of each in its install.
+
+**`@tatara/core` is a peer too.** It holds the app's shutdown and readiness registries, so an
+app must have exactly one copy. Every other `@tatara/*` package that uses it lists it in
+`peerDependencies`, never `dependencies`.

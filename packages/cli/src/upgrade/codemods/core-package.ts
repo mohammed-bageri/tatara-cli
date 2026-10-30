@@ -52,17 +52,24 @@ async function rewriteEnv(ctx: UpgradeContext): Promise<void> {
 	await ctx.write(ENV, next);
 }
 
-async function passLogger(ctx: UpgradeContext): Promise<void> {
+/** Only call sites of functions that now come from @tatara/core take the logger argument. */
+async function passLogger(ctx: UpgradeContext, gone: readonly string[]): Promise<void> {
+	const runnerGone = gone.includes(MOVED["src/core/commands/runner.ts"] as string);
+	const lifecycleGone = gone.includes(MOVED["src/core/process/lifecycle.ts"] as string);
 	const cli = await exists(ctx, CLI_ENTRY);
 	if (cli) {
-		const next = cli
-			.replace(
+		let next = cli;
+		if (runnerGone) {
+			next = next.replace(
 				"runCommand(commands, process.argv.slice(2));",
 				"runCommand(commands, process.argv.slice(2), logger);",
-			)
-			.replace("await shutdown(code);", "await shutdown(code, logger);");
+			);
+		}
+		if (lifecycleGone)
+			next = next.replace("await shutdown(code);", "await shutdown(code, logger);");
 		if (next !== cli) await ctx.write(CLI_ENTRY, withImport(next, LOGGER_IMPORT));
 	}
+	if (!lifecycleGone) return;
 	for (const path of SIGNAL_FILES) {
 		const text = await exists(ctx, path);
 		if (text?.includes("handleSignals();")) {
@@ -74,6 +81,21 @@ async function passLogger(ctx: UpgradeContext): Promise<void> {
 	}
 }
 
+const WORKSPACE = "pnpm-workspace.yaml";
+const EXCLUDE_ENTRY = '  - "@tatara/*"';
+
+/** pnpm refuses packages younger than its minimum release age; tatara's own are exempt. */
+async function allowFreshReleases(ctx: UpgradeContext): Promise<void> {
+	if (ctx.project.config.packageManager !== "pnpm") return;
+	const text = await exists(ctx, WORKSPACE);
+	if (text === undefined || /["']@tatara\/\*["']/.test(text)) return;
+	const lines = text.replace(/\n$/, "").split("\n");
+	const key = lines.findIndex((line) => line.trim() === "minimumReleaseAgeExclude:");
+	if (key === -1) lines.push("minimumReleaseAgeExclude:", EXCLUDE_ENTRY);
+	else lines.splice(key + 1, 0, EXCLUDE_ENTRY);
+	await ctx.write(WORKSPACE, `${lines.join("\n")}\n`);
+}
+
 async function useLoggerOptions(ctx: UpgradeContext): Promise<void> {
 	const text = await exists(ctx, LOGGER);
 	if (!text || text.includes("loggerOptions")) return;
@@ -83,6 +105,9 @@ async function useLoggerOptions(ctx: UpgradeContext): Promise<void> {
 		);
 		return;
 	}
+	ctx.report.notes.push(
+		`${LOGGER} now uses @tatara/core's loggerOptions: in production the log text is in \`message\` (was \`msg\`) and each line has a Cloud Logging \`severity\`. Update log queries or alerts that read \`msg\`.`,
+	);
 	await ctx.write(
 		LOGGER,
 		`import { loggerOptions } from "@tatara/core";
@@ -120,7 +145,8 @@ export const corePackage: Codemod = {
 		}
 		for (const specifier of gone) await ctx.rewriteImports(specifier, CORE);
 		await rewriteEnv(ctx);
-		await passLogger(ctx);
+		await passLogger(ctx, gone);
+		await allowFreshReleases(ctx);
 		await useLoggerOptions(ctx);
 	},
 };
