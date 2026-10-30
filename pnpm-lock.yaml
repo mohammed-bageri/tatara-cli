@@ -17,6 +17,9 @@ importers:
       '@types/node':
         specifier: 24.19.2
         version: 24.19.2
+      tsdown:
+        specifier: 0.23.1
+        version: 0.23.1(typescript@7.0.2)
       typescript:
         specifier: 7.0.2
         version: 7.0.2

@@ -31,3 +31,7 @@ Tokens replaced in template text: `__APP_NAME__`, `__APP_DB__`, `__PM_RUN__`, `_
 - Every combination must pass the generated app's own `verify` and the e2e smoke test.
 - Generators only add files and never overwrite.
 - Template code follows the same rules it generates (AGENTS.md in the app).
+
+## Packages
+
+See [packages.md](packages.md) for creating a `@tatara/*` library package and the rules it must follow.

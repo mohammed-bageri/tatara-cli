@@ -1,5 +1,5 @@
 {
 	"extends": "./tsconfig.base.json",
 	"compilerOptions": { "noEmit": true },
-	"include": ["e2e", "scripts"]
+	"include": ["e2e", "scripts", "packages/*.test.ts", "tsdown.base.ts"]
 }
