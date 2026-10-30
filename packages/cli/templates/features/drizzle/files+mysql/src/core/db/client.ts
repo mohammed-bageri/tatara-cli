@@ -1,8 +1,8 @@
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
 import { env } from "#core/config/env";
-import { registerReadinessCheck } from "#core/http/health";
-import { onShutdown } from "#core/process/lifecycle";
+import { registerReadinessCheck } from "@tatara/core";
+import { onShutdown } from "@tatara/core";
 import * as schema from "#generated/schema";
 
 export const pool = mysql.createPool({ uri: env.DATABASE_URL, connectionLimit: env.DATABASE_POOL_MAX });

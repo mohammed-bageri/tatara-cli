@@ -4,7 +4,7 @@ import { processJob } from "#core/jobs/process";
 import { QUEUE_NAME } from "#core/jobs/queue";
 import { redis } from "#core/jobs/redis";
 import { logger } from "#core/logging/logger";
-import { handleSignals, onShutdown } from "#core/process/lifecycle";
+import { handleSignals, onShutdown } from "@tatara/core";
 import { consumers } from "#generated/consumers";
 
 const worker = new Worker(
@@ -20,5 +20,5 @@ const worker = new Worker(
 
 worker.on("failed", (job, err) => logger.error({ err, jobId: job?.id, topic: job?.name }, "job failed"));
 onShutdown("worker", () => worker.close());
-handleSignals();
+handleSignals(logger);
 logger.info({ topics: consumers.map((c) => c.topic) }, "worker started");

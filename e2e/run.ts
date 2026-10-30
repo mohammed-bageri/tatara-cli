@@ -8,7 +8,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { join, resolve } from "node:path";
 import { parseEnv } from "node:util";
 import { hashTrackedFiles } from "../packages/cli/src/project/hashes.ts";
-import { packCli, run } from "./lib.ts";
+import { packCli, packLibraries, run } from "./lib.ts";
 import { SCENARIOS, type Scenario } from "./scenarios.ts";
 
 const ROOT = resolve(import.meta.dirname, "..");
@@ -413,6 +413,7 @@ async function runScenario(
 	s: Scenario,
 	slot: number,
 	packed: string,
+	librarySpecs: string,
 	keep: boolean,
 ): Promise<ScenarioResult> {
 	const started = Date.now();
@@ -466,7 +467,11 @@ async function runScenario(
 				[join(CLI, "dist/bin.mjs"), "new", dir, ...s.flags, "--yes", "--no-git"],
 				{
 					cwd: RUNS,
-					env: { ...pathEnv, TATARA_CLI_SPEC: `file:${packed}` },
+					env: {
+						...pathEnv,
+						TATARA_CLI_SPEC: `file:${packed}`,
+						TATARA_PACKAGE_SPECS: librarySpecs,
+					},
 					log: join(logDir, "new.log"),
 				},
 			);
@@ -554,6 +559,7 @@ async function main() {
 
 	console.log("building and packing the CLI…");
 	const packed = await packCli(WORK);
+	const librarySpecs = await packLibraries(WORK);
 
 	if (
 		scenarios.some((s) => s.pm === "bun") &&
@@ -568,7 +574,7 @@ async function main() {
 	const workers = Array.from({ length: Math.max(1, options.parallel) }, async (_, slot) => {
 		for (let s = queue.shift(); s; s = queue.shift()) {
 			console.log(`▶ ${s.name}`);
-			const result = await runScenario(s, slot, packed, options.keep);
+			const result = await runScenario(s, slot, packed, librarySpecs, options.keep);
 			results.push(result);
 			const failed = result.steps.find((x) => !x.ok);
 			console.log(

@@ -1,4 +1,4 @@
-import { defineCommand } from "#core/commands/define";
+import { defineCommand } from "@tatara/core";
 import { env } from "#core/config/env";
 import { storage } from "#core/storage/index";
 import { ensureBucket } from "#core/storage/s3";

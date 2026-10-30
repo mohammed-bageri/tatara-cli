@@ -2,7 +2,7 @@ import { z } from "zod";
 import { DEFAULT_ORG_ID, SYSTEM_ORG_ID } from "#core/authz/constants";
 import { store } from "#core/authz/db/store";
 import { assignRole } from "#core/authz/services/members";
-import { defineCommand } from "#core/commands/define";
+import { defineCommand } from "@tatara/core";
 
 export default defineCommand({
 	name: "authz:grant-role",

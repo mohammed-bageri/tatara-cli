@@ -1,8 +1,8 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import { env } from "#core/config/env";
-import { registerReadinessCheck } from "#core/http/health";
-import { onShutdown } from "#core/process/lifecycle";
+import { registerReadinessCheck } from "@tatara/core";
+import { onShutdown } from "@tatara/core";
 import * as schema from "#generated/schema";
 
 export const pool = new pg.Pool({ connectionString: env.DATABASE_URL, max: env.DATABASE_POOL_MAX });

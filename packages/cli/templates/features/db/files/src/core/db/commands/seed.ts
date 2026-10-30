@@ -1,4 +1,4 @@
-import { defineCommand } from "#core/commands/define";
+import { defineCommand } from "@tatara/core";
 import { seeds } from "#generated/seeds";
 
 export default defineCommand({

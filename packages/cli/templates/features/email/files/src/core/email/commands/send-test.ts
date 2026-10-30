@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineCommand } from "#core/commands/define";
+import { defineCommand } from "@tatara/core";
 import { sendEmail } from "#core/email/send";
 
 export default defineCommand({

@@ -125,14 +125,11 @@ export function envFile(vars: EnvVar[], kind: "example" | "dev" | "test"): strin
 export function envModule(vars: EnvVar[]): string {
 	const fields = vars.map((v) => `\t\t${v.key}: ${v.schema},`).join("\n");
 	return `import { createEnv } from "@t3-oss/env-core";
+import { createLocalDefault } from "@tatara/core";
 import { z } from "zod";
 
-const production = process.env.NODE_ENV === "production";
-
 /** A default for local development; production must set the value explicitly. */
-function localDefault<T extends z.ZodType>(schema: T, value: z.input<T>): T {
-	return production ? schema : (schema.default(value as never) as unknown as T);
-}
+const localDefault = createLocalDefault(process.env.NODE_ENV === "production");
 
 /** The only place that reads process.env. Add new variables here and to .env.example. */
 export const env = createEnv({
@@ -222,8 +219,13 @@ export function composeFile(
 export function pnpmWorkspace(features: Feature[]): string {
 	const builds = [...new Set(features.flatMap((f) => f.allowBuilds ?? []))].sort();
 	const lines = ["# Packages allowed to run install scripts."];
-	if (builds.length === 0) return `${lines.join("\n")}\nallowBuilds: {}\n`;
-	lines.push("allowBuilds:", ...builds.map((b) => `  "${b}": true`));
+	if (builds.length === 0) lines.push("allowBuilds: {}");
+	else lines.push("allowBuilds:", ...builds.map((b) => `  "${b}": true`));
+	lines.push(
+		"# tatara's own packages are installed as soon as they are released",
+		"minimumReleaseAgeExclude:",
+		'  - "@tatara/*"',
+	);
 	return `${lines.join("\n")}\n`;
 }
 

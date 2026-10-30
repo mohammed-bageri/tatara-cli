@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineCommand } from "#core/commands/define";
+import { defineCommand } from "@tatara/core";
 import { enqueue } from "#core/jobs/queue";
 
 export default defineCommand({

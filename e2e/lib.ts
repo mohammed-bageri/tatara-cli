@@ -48,14 +48,39 @@ export async function packCli(work: string): Promise<string> {
 	return join(pkgDir, readdirSync(pkgDir).find((f) => f.endsWith(".tgz")) ?? "");
 }
 
-/** `tatara new <dir> <flags> --yes --no-git` with the packed CLI as the app's @tatara/cli. */
-export async function generateApp(packed: string, dir: string, flags: string[]): Promise<void> {
+/** Builds and packs every @tatara/* library package; returns `TATARA_PACKAGE_SPECS` as JSON. */
+export async function packLibraries(work: string): Promise<string> {
+	const specs: Record<string, string> = {};
+	const out = join(work, "libs");
+	rmSync(out, { recursive: true, force: true });
+	mkdirSync(out, { recursive: true });
+	for (const entry of readdirSync(join(ROOT, "packages"), { withFileTypes: true })) {
+		if (!entry.isDirectory() || entry.name === "cli" || entry.name === "create-tatara") continue;
+		const dir = join(ROOT, "packages", entry.name);
+		const build = await run("pnpm", ["run", "build"], { cwd: dir });
+		if (build.code !== 0) throw new Error(build.out);
+		const before = new Set(readdirSync(out));
+		const pack = await run("pnpm", ["pack", "--pack-destination", out], { cwd: dir });
+		if (pack.code !== 0) throw new Error(pack.out);
+		const tarball = readdirSync(out).find((f) => f.endsWith(".tgz") && !before.has(f));
+		specs[`@tatara/${entry.name}`] = `file:${join(out, tarball ?? "")}`;
+	}
+	return JSON.stringify(specs);
+}
+
+/** `tatara new <dir> <flags> --yes --no-git` with the packed CLI and library packages. */
+export async function generateApp(
+	packed: string,
+	dir: string,
+	flags: string[],
+	librarySpecs: string,
+): Promise<void> {
 	const res = await run(
 		"node",
 		[join(CLI, "dist/bin.mjs"), "new", dir, ...flags, "--yes", "--no-git"],
 		{
 			cwd: resolve(dir, ".."),
-			env: { TATARA_CLI_SPEC: `file:${packed}` },
+			env: { TATARA_CLI_SPEC: `file:${packed}`, TATARA_PACKAGE_SPECS: librarySpecs },
 		},
 	);
 	if (res.code !== 0) throw new Error(res.out.slice(-1500));

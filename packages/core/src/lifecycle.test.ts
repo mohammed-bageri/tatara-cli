@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createLifecycle } from "./index.ts";
+import { type CoreLogger, createLifecycle } from "./index.ts";
 
-const silent = { info: () => {}, error: vi.fn(), child: () => silent };
+const silent = { info: () => {}, error: vi.fn(), child: () => silent } as unknown as CoreLogger;
 
 afterEach(() => {
 	vi.useRealTimers();
@@ -23,7 +23,9 @@ describe("lifecycle", () => {
 
 	it("logs a failing hook and runs the rest", async () => {
 		const ran: string[] = [];
-		const logger = { ...silent, error: vi.fn() };
+		const logger = { ...silent, error: vi.fn() } as unknown as CoreLogger & {
+			error: ReturnType<typeof vi.fn>;
+		};
 		const life = createLifecycle({ exit: () => {} });
 		life.onShutdown("ok", () => {
 			ran.push("ok");
@@ -51,7 +53,9 @@ describe("lifecycle", () => {
 
 	it("stops waiting after the timeout", async () => {
 		vi.useFakeTimers();
-		const logger = { ...silent, info: vi.fn() };
+		const logger = { ...silent, info: vi.fn() } as unknown as CoreLogger & {
+			info: ReturnType<typeof vi.fn>;
+		};
 		const ran: string[] = [];
 		const life = createLifecycle({ exit: () => {}, shutdownTimeoutMs: 1000 });
 		life.waitUntil(new Promise(() => {}));

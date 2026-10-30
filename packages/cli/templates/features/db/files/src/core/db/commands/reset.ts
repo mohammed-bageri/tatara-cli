@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineCommand, flag } from "#core/commands/define";
+import { defineCommand, flag } from "@tatara/core";
 import { env } from "#core/config/env";
 import { dropAllTables } from "#core/db/admin";
 import { migrateDatabase } from "#core/db/migrate";

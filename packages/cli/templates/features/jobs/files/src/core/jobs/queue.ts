@@ -1,7 +1,7 @@
 import { type JobsOptions, Queue } from "bullmq";
 import { env } from "#core/config/env";
 import { redis } from "#core/jobs/redis";
-import { onShutdown } from "#core/process/lifecycle";
+import { onShutdown } from "@tatara/core";
 
 export const QUEUE_NAME = "__APP_NAME__-jobs";
 

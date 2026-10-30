@@ -1,11 +1,7 @@
-import type { LoggerOptions } from "pino";
+import type { Logger, LoggerOptions } from "pino";
 
-/** What tatara needs from a logger; a pino logger satisfies it. */
-export interface CoreLogger {
-	info(obj: object, msg?: string): void;
-	error(obj: object, msg?: string): void;
-	child(bindings: object): CoreLogger;
-}
+/** The app's pino logger; commands and shutdown hooks log through it. */
+export type CoreLogger = Logger;
 
 type Severity = "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
 

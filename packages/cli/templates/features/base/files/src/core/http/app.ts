@@ -5,7 +5,7 @@ import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
 import { env } from "#core/config/env";
 import type { AppEnv } from "#core/http/context";
-import { runReadinessChecks } from "#core/http/health";
+import { runReadinessChecks } from "@tatara/core";
 import { errorHandler, notFoundHandler } from "#core/http/middleware/error-handler";
 import { requestContext } from "#core/http/middleware/request-context";
 import { validationHook } from "#core/http/middleware/validation";

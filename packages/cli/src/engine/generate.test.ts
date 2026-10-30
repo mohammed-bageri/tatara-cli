@@ -80,7 +80,11 @@ describe("renderApp", () => {
 		const pkg = JSON.parse(files.get("package.json") ?? "{}") as {
 			dependencies: Record<string, string>;
 		};
-		expect(Object.values(pkg.dependencies).every((v) => /^\d/.test(v))).toBe(true);
+		for (const [name, version] of Object.entries(pkg.dependencies)) {
+			// third-party libraries are pinned; tatara's own packages take patch and minor fixes
+			const expected = name.startsWith("@tatara/") ? /^\^\d/ : /^\d/;
+			expect(version, name).toMatch(expected);
+		}
 	});
 
 	it("produces the expected file set for a full better-auth app", async () => {

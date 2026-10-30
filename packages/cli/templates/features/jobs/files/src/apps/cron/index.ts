@@ -1,7 +1,7 @@
 import { Cron } from "croner";
 import { withLock } from "#core/jobs/lock";
 import { logger } from "#core/logging/logger";
-import { handleSignals, onShutdown } from "#core/process/lifecycle";
+import { handleSignals, onShutdown } from "@tatara/core";
 import { schedules } from "#generated/schedules";
 
 const jobs = schedules.map((schedule) => {
@@ -21,5 +21,5 @@ const jobs = schedules.map((schedule) => {
 onShutdown("cron", () => {
 	for (const job of jobs) job.stop();
 });
-handleSignals();
+handleSignals(logger);
 logger.info({ schedules: schedules.map((s) => `${s.name} (${s.cron})`) }, "cron started");

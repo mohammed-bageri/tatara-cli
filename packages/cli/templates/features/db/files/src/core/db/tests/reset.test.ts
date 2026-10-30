@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { parseFlags } from "#core/commands/runner";
+import { parseFlags } from "@tatara/core";
 import reset from "#core/db/commands/reset";
 
 it("does not treat --force false as forcing db:reset", () => {

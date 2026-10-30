@@ -5,6 +5,7 @@ export const base: Feature = {
 	kind: "base",
 	label: "Hono API",
 	dependencies: [
+		"@tatara/core",
 		"hono",
 		"@hono/node-server",
 		"@hono/zod-openapi",

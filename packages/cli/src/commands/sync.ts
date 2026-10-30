@@ -89,7 +89,7 @@ export async function sync(project: Project = loadProject()): Promise<SyncResult
 		join(out, "commands.ts"),
 		listModule(commands, {
 			prefix: "command",
-			typeImport: 'import type { CommandDefinition } from "#core/commands/define";',
+			typeImport: 'import type { CommandDefinition } from "@tatara/core";',
 			typeName: "CommandDefinition",
 			exportName: "commands",
 		}),

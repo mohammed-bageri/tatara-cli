@@ -1,6 +1,6 @@
 import { Redis } from "ioredis";
 import { env } from "#core/config/env";
-import { onShutdown } from "#core/process/lifecycle";
+import { onShutdown } from "@tatara/core";
 
 let client: Redis | undefined;
 

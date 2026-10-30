@@ -1,4 +1,4 @@
-import { defineCommand } from "#core/commands/define";
+import { defineCommand } from "@tatara/core";
 import { syncSystemRoles } from "#core/authz/services/sync";
 
 export default defineCommand({

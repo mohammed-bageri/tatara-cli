@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { issuer } from "#core/auth/keycloak";
-import { defineCommand } from "#core/commands/define";
+import { defineCommand } from "@tatara/core";
 import { env } from "#core/config/env";
 
 export default defineCommand({

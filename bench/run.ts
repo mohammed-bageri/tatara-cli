@@ -14,7 +14,7 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
-import { generateApp, packCli, ROOT, run } from "../e2e/lib.ts";
+import { generateApp, packCli, packLibraries, ROOT, run } from "../e2e/lib.ts";
 import { median } from "./stats.ts";
 
 const WORK = join(ROOT, ".e2e", "bench");
@@ -123,7 +123,7 @@ async function sync100(appDir: string): Promise<number> {
 		);
 		writeFileSync(
 			join(copy, "src/modules", m, "commands", `${m}.ts`),
-			`import { defineCommand } from "#core/commands/define";\n\nexport default defineCommand({ name: "${m}:run", description: "${m}", run() {} });\n`,
+			`import { defineCommand } from "@tatara/core";\n\nexport default defineCommand({ name: "${m}:run", description: "${m}", run() {} });\n`,
 		);
 	}
 	const samples: number[] = [];
@@ -144,18 +144,15 @@ async function main() {
 	mkdirSync(WORK, { recursive: true });
 
 	const packed = await packCli(WORK);
+	const librarySpecs = await packLibraries(WORK);
 	const appDir = join(WORK, "app");
 	rmSync(appDir, { recursive: true, force: true });
-	await generateApp(packed, appDir, [
-		"--orm",
-		"none",
-		"--db",
-		"none",
-		"--auth",
-		"none",
-		"--pm",
-		"pnpm",
-	]);
+	await generateApp(
+		packed,
+		appDir,
+		["--orm", "none", "--db", "none", "--auth", "none", "--pm", "pnpm"],
+		librarySpecs,
+	);
 	const built = await run("pnpm", ["run", "build"], { cwd: appDir });
 	if (built.code !== 0) throw new Error(`app build failed: ${built.out.slice(-500)}`);
 

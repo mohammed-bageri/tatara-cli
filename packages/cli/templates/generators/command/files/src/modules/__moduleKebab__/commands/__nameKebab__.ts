@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineCommand, flag } from "#core/commands/define";
+import { defineCommand, flag } from "@tatara/core";
 
 export default defineCommand({
 	name: "__moduleKebab__:__nameKebab__",

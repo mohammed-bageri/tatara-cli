@@ -1,4 +1,4 @@
-import { defineCommand } from "#core/commands/define";
+import { defineCommand } from "@tatara/core";
 import { env } from "#core/config/env";
 import { migrateDatabase } from "#core/db/migrate";
 

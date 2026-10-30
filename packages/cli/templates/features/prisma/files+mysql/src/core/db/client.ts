@@ -1,8 +1,8 @@
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import { env } from "#core/config/env";
 import { connectionConfig } from "#core/db/admin";
-import { registerReadinessCheck } from "#core/http/health";
-import { onShutdown } from "#core/process/lifecycle";
+import { registerReadinessCheck } from "@tatara/core";
+import { onShutdown } from "@tatara/core";
 import { type Prisma, PrismaClient } from "#generated/prisma/client";
 
 export const db = new PrismaClient({

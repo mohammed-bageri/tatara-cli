@@ -3,19 +3,19 @@ import { z } from "zod";
 import { type CoreLogger, defineCommand, flag, parseFlags, runCommand } from "./index.ts";
 
 function fakeLogger() {
-	const logger: CoreLogger & { errors: unknown[]; bindings: object[] } = {
-		errors: [],
-		bindings: [],
+	const logger = {
+		errors: [] as unknown[],
+		bindings: [] as object[],
 		info: () => {},
-		error: (o) => {
+		error: (o: unknown) => {
 			logger.errors.push(o);
 		},
-		child: (b) => {
+		child: (b: object): unknown => {
 			logger.bindings.push(b);
 			return logger;
 		},
 	};
-	return logger;
+	return logger as typeof logger & CoreLogger;
 }
 
 describe("flag()", () => {

@@ -23,9 +23,19 @@ export function templateVersions(): Record<string, string> {
 	return versions;
 }
 
+/** `TATARA_PACKAGE_SPECS='{"@tatara/core":"file:…"}'` installs local builds (e2e, bench). */
+function packageSpecOverride(pkg: string): string | undefined {
+	const raw = process.env.TATARA_PACKAGE_SPECS;
+	if (!raw) return undefined;
+	return (JSON.parse(raw) as Record<string, string>)[pkg];
+}
+
 export function versionOf(pkg: string): string {
+	const override = packageSpecOverride(pkg);
+	if (override) return override;
 	if (pkg === "@tatara/cli") return process.env.TATARA_CLI_SPEC ?? `^${cliVersion()}`;
 	const version = templateVersions()[pkg];
 	if (!version) throw new Error(`templates/versions.json has no version for "${pkg}"`);
-	return version;
+	// tatara's packages take patch and minor fixes; third-party libraries stay pinned
+	return pkg.startsWith("@tatara/") ? `^${version}` : version;
 }
