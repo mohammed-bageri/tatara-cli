@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { glob } from "tinyglobby";
+import { renderApp } from "../engine/generate.ts";
 import type { Project } from "../project/config.ts";
 import type { Baseline } from "./baseline.ts";
 
@@ -25,6 +26,8 @@ export interface UpgradeContext {
 	/** Rewrites `from` and `from/...` import specifiers in src/ and tests/; returns files changed. */
 	rewriteImports(from: string, to: string): Promise<number>;
 	addDependency(name: string, range: string, opts?: { dev?: boolean }): Promise<void>;
+	/** What this CLI version generates at `path` for the app's options (undefined if nothing). */
+	renderCurrent(path: string): Promise<string | undefined>;
 }
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -36,6 +39,7 @@ export function createContext(
 ): UpgradeContext {
 	const report: UpgradeReport = { ran: [], written: [], removed: [], kept: [], notes: [] };
 	const abs = (path: string) => join(project.root, path);
+	let rendered: Promise<Map<string, string>> | undefined;
 	const write = async (path: string, text: string) => {
 		if (!report.written.includes(path)) report.written.push(path);
 		if (opts.dryRun) return;
@@ -80,6 +84,11 @@ export function createContext(
 				}
 			}
 			return changed;
+		},
+		async renderCurrent(path) {
+			const { name, orm, database, auth, authMethods, addons, packageManager } = project.config;
+			rendered ??= renderApp({ name, orm, database, auth, authMethods, addons, packageManager });
+			return (await rendered).get(path);
 		},
 		async addDependency(name, range, { dev = false } = {}) {
 			const pkg = JSON.parse(await readFile(abs("package.json"), "utf8")) as Record<
