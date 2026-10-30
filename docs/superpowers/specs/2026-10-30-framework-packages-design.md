@@ -15,12 +15,17 @@ What tatara is, in the user's words: **it provides the structure and the tools, 
 3. **Configure, don't edit.** Where apps differ, packages take options with today's behaviour as the default. Anything an option doesn't cover is done in the app's own library config, e.g. its own `betterAuth({...})`, or by ejecting.
 4. **Separate packages, so small apps stay small.** An app installs only the packages for the features it uses. Libraries an app owns (hono, better-auth, prisma, drizzle-orm, zod) are **peer dependencies**, so the app picks their versions and gets one copy of each.
 5. **Escape hatch: `tatara eject <package>`.** It copies a package's source into the app and rewrites the imports. From then on the app owns that code, and `tatara upgrade` leaves it alone.
-6. **Move one layer at a time.** Each step is a release that keeps tatara's `verify` and the full e2e matrix green, and MeemAin moves to it before the next step starts.
+6. **tatara is never the bottleneck.** Hono is fast, and tatara must not slow down boot or requests:
+   - Nothing is discovered at runtime: no folder scanning, no reflection, no registry built at boot. `sync` writes plain static imports at build time.
+   - Each package does no work on import; it acts only when the app calls it.
+   - Optional parts load only when used.
+   - CI enforces these numbers (budgets) against a plain-Hono baseline app, with the same routes and no tatara.
+7. **Move one layer at a time.** Each step is a release that keeps tatara's `verify` and the full e2e matrix green, and MeemAin moves to it before the next step starts.
 
 ## Non-goals and anti-goals
 
 - **Non-goals:**
-  - A runtime kernel, dependency injection or plugin registry. The previous `tatara-framework` repo went that way.
+  - A runtime kernel or kind registry. The previous `tatara-framework` repo had `defineApp` + `KindRegistry` + `app.boot()` in `main.ts`; its own port findings list the two registrations drifting apart. A few of its ideas are kept below.
   - Hiding or re-exporting library APIs.
   - New features. This is a move, not a redesign.
 - **Anti-goals.** It's a failure, even if it works, if:
@@ -91,6 +96,26 @@ These are my calls; the reviewer flagged them as decisions a builder would other
   - A copied file counts as unchanged if it matches **any released template version** of that file, with templates rendered for the app's own `tatara.json` options. That covers apps like MeemAin, whose fixes later landed in tatara.
   - From step 0 on, `tatara.json` also records the CLI version and file hashes, so later upgrades have an exact baseline.
 
+## Ideas kept from `tatara-framework`
+
+1. **Build-time validation of discovered files.** `sync` checks every discovered file against its convention, e.g. "a route file default-exports `defineRoutes`". A bad file fails `sync` (and so `verify`) with the file, the convention and the rule named.
+2. **A metadata manifest.**
+   - Next to the static imports, `sync` writes `src/generated/manifest.json` listing routes (with method, path and guard), commands, permissions and seeds, from the app and from installed packages.
+   - `tatara routes` and `doctor` read it instead of importing the app. That also fixes `routes` missing the auth endpoints.
+3. **Draining on shutdown.** `@tatara/core` adds `waitUntil(promise)`. Shutdown waits for that work (bounded by a timeout), then runs the hooks in reverse order.
+4. **One service declaration per package.**
+   - A package that needs a backing service exports a declaration for it: `@tatara/prisma` / `@tatara/drizzle` for the database, `@tatara/jobs` for Redis, `@tatara/storage` for S3, `@tatara/email` for Mailpit.
+   - The declaration covers the dev container, the health check (shown at `/ready`), the release step (e.g. migrations) and the shutdown hook.
+   - The CLI builds compose, readiness and the migrate step from these declarations instead of keeping that knowledge in its own feature files.
+5. **Performance budgets in CI.** The bench compares a generated app with the plain-Hono baseline. *Starting numbers are my call, taken from `tatara-framework`'s bench, and are tightened once measured:*
+
+| Budget | Limit |
+|---|---|
+| Added time per request vs plain Hono (the middleware stack on a trivial route) | < 0.1 ms |
+| Cold boot of the api process to first request (no database) | < 300 ms |
+| `@tatara/core` + `@tatara/http` installed size | < 500 KB |
+| `sync` on 100 modules | < 2 s |
+
 ## Versions and releases
 
 - **Each package has its own version**, released with Changesets. Packages that change together depend on each other with `^` ranges.
@@ -114,7 +139,7 @@ Each step is one release plus MeemAin moving to it.
 
 | Step | What | Why this order |
 |---|---|---|
-| 0 | Monorepo ready for many packages: shared build/test config, Changesets, CI publish, the codemod harness and `upgrade` skeleton | Everything else depends on it |
+| 0 | Monorepo ready for many packages: shared build/test config, Changesets, CI publish, the codemod harness and `upgrade` skeleton, the bench and its budgets measured on today's generated app | Everything else depends on it; budgets need a baseline before code moves |
 | 1 | `@tatara/core` | No dependencies; smallest |
 | 2 | `@tatara/http` | Every app uses it; most of this week's fixes were here |
 | 3 | `@tatara/testing` + `@tatara/prisma` / `@tatara/drizzle` | Needed by every later package's tests |
@@ -127,6 +152,7 @@ Each step is one release plus MeemAin moving to it.
 
 - The package carries the unit tests that live in the templates today, plus any new ones. Coverage must not drop.
 - The e2e matrix still passes for all scenarios. Generated apps now import the package instead of a copy.
+- The bench stays within budget.
 - A test for the step's codemod: an unmodified app migrates cleanly, and a modified file is kept and reported.
 - MeemAin runs `tatara upgrade`, then `verify` passes, then its PR's CI passes.
 
