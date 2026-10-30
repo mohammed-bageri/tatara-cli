@@ -10,6 +10,8 @@ export interface UpgradeReport {
 	ran: string[];
 	/** files a codemod wrote (relative paths) */
 	written: string[];
+	/** written files that were what tatara generated before the write; only these join the record */
+	regenerated: string[];
 	removed: string[];
 	kept: { path: string; diff: string }[];
 	notes: string[];
@@ -37,11 +39,23 @@ export function createContext(
 	baseline: Baseline,
 	opts: { dryRun?: boolean } = {},
 ): UpgradeContext {
-	const report: UpgradeReport = { ran: [], written: [], removed: [], kept: [], notes: [] };
+	const report: UpgradeReport = {
+		ran: [],
+		written: [],
+		regenerated: [],
+		removed: [],
+		kept: [],
+		notes: [],
+	};
 	const abs = (path: string) => join(project.root, path);
 	let rendered: Promise<Map<string, string>> | undefined;
 	const write = async (path: string, text: string) => {
-		if (!report.written.includes(path)) report.written.push(path);
+		if (!report.written.includes(path)) {
+			report.written.push(path);
+			const before = existsSync(abs(path)) ? await readFile(abs(path), "utf8") : undefined;
+			if (before === undefined || (await baseline.isUnchanged(path, before)))
+				report.regenerated.push(path);
+		}
 		if (opts.dryRun) return;
 		await mkdir(dirname(abs(path)), { recursive: true });
 		await writeFile(abs(path), text);

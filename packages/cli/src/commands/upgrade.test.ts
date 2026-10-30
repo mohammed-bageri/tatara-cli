@@ -212,4 +212,54 @@ describe("upgrade", () => {
 		});
 		expect(formatted).toEqual(["tatara.json"]);
 	});
+
+	it("does not record a customised file as generated when a codemod edits it", async () => {
+		const project = fixture({
+			"src/core/http/app.ts": 'import { x } from "#core/old";\n// customised\n',
+		});
+		await upgrade(project, {
+			...deps(project, "0.1.4"),
+			codemods: [
+				{
+					version: "0.1.4",
+					id: "imports",
+					description: "",
+					run: async (ctx) => {
+						await ctx.rewriteImports("#core/old", "@tatara/new");
+					},
+				},
+			],
+		});
+		const later = loadProject(project.root);
+		expect(later.config.generated?.files["src/core/http/app.ts"]).toBeUndefined();
+	});
+
+	it("records an edited file that was unchanged before the edit", async () => {
+		const project = fixture({ "src/core/http/errors.ts": 'import { x } from "#core/old";\n' });
+		const original = 'import { x } from "#core/old";\n';
+		const recorded = {
+			...project.config.generated?.files,
+			"src/core/http/errors.ts": hashContent(original),
+		};
+		const withRecord = {
+			...project,
+			config: { ...project.config, generated: { cli: "0.1.3", files: recorded } },
+		};
+		await upgrade(withRecord, {
+			...deps(withRecord, "0.1.4"),
+			codemods: [
+				{
+					version: "0.1.4",
+					id: "imports",
+					description: "",
+					run: async (ctx) => {
+						await ctx.rewriteImports("#core/old", "@tatara/new");
+					},
+				},
+			],
+		});
+		expect(loadProject(project.root).config.generated?.files["src/core/http/errors.ts"]).toBe(
+			hashContent('import { x } from "@tatara/new";\n'),
+		);
+	});
 });

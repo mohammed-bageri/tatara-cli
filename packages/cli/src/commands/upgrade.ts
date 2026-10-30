@@ -41,7 +41,7 @@ async function nextRecord(
 	const record = { ...(project.config.generated?.files ?? {}) };
 	for (const path of report.removed) delete record[path];
 	const current = await hashTrackedFiles(project.root);
-	for (const path of report.written) {
+	for (const path of report.regenerated) {
 		const hash = current[path];
 		if (hash) record[path] = hash;
 	}
