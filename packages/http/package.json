@@ -1,0 +1,52 @@
+{
+	"name": "@tatara/http",
+	"version": "0.1.0",
+	"description": "tatara HTTP: Hono app setup, errors, envelope, OpenAPI docs and route mounting",
+	"type": "module",
+	"license": "MIT",
+	"sideEffects": false,
+	"exports": {
+		".": {
+			"types": "./dist/index.d.mts",
+			"import": "./dist/index.mjs"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"engines": {
+		"node": ">=24"
+	},
+	"scripts": {
+		"build": "tsdown",
+		"typecheck": "tsc --noEmit"
+	},
+	"peerDependencies": {
+		"hono": "^4.13.13",
+		"@hono/zod-openapi": "^1.6.3",
+		"@hono/node-server": "^2.1.5",
+		"@scalar/hono-api-reference": "^0.12.12",
+		"@tatara/core": "^0.1.0"
+	},
+	"devDependencies": {
+		"hono": "^4.13.13",
+		"@hono/zod-openapi": "^1.6.3",
+		"@hono/node-server": "^2.1.5",
+		"@scalar/hono-api-reference": "^0.12.12",
+		"@tatara/core": "workspace:^",
+		"pino": "^10.4.0",
+		"zod": "^4.6.7"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/mohammed-bageri/tatara-cli.git",
+		"directory": "packages/http"
+	},
+	"homepage": "https://github.com/mohammed-bageri/tatara-cli#readme",
+	"bugs": {
+		"url": "https://github.com/mohammed-bageri/tatara-cli/issues"
+	}
+}
