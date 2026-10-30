@@ -1,5 +1,16 @@
 # create-tatara
 
+## 0.4.0
+
+### Minor Changes
+
+- 6fac954: Generated apps use the new `@tatara/db` (`newId`, `defineSeed`, per-driver admin helpers and per-ORM `migrateDatabase` in sub-paths) and `@tatara/testing` (in-process API `client`, one database per test worker). `src/core/db/admin.ts` and `migrate.ts` become one-line re-exports naming the app's driver. `app.ts` only contains the OpenAPI and error-message callbacks when a feature needs them. `tatara upgrade` moves existing apps over (codemod `db-testing`).
+
+### Patch Changes
+
+- Updated dependencies [6fac954]
+  - @tatara/cli@0.4.0
+
 ## 0.3.0
 
 ### Minor Changes
