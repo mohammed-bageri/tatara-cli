@@ -1,0 +1,39 @@
+{
+	"name": "@tatara/testing",
+	"version": "0.1.0",
+	"description": "tatara test helpers: in-process API client and one database per test worker",
+	"type": "module",
+	"license": "MIT",
+	"sideEffects": false,
+	"exports": {
+		".": {
+			"types": "./dist/index.d.mts",
+			"import": "./dist/index.mjs"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"engines": {
+		"node": ">=24"
+	},
+	"scripts": {
+		"build": "tsdown",
+		"typecheck": "tsc --noEmit"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/mohammed-bageri/tatara-cli.git",
+		"directory": "packages/testing"
+	},
+	"homepage": "https://github.com/mohammed-bageri/tatara-cli#readme",
+	"bugs": {
+		"url": "https://github.com/mohammed-bageri/tatara-cli/issues"
+	},
+	"devDependencies": {
+		"hono": "^4.13.13"
+	}
+}
