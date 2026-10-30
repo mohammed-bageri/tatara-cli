@@ -1,3 +1,4 @@
+import { corePackage } from "./codemods/core-package.ts";
 import type { UpgradeContext } from "./context.ts";
 
 /**
@@ -13,4 +14,4 @@ export interface Codemod {
 }
 
 /** Every codemod tatara ships, oldest first. Each step that moves code into a package adds one. */
-export const CODEMODS: readonly Codemod[] = [];
+export const CODEMODS: readonly Codemod[] = [corePackage];

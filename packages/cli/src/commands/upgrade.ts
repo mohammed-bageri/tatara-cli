@@ -74,6 +74,8 @@ export async function upgrade(project: Project, opts: UpgradeOptions = {}): Prom
 	}
 	if (opts.dryRun) return ctx.report;
 
+	const format = opts.formatFile ?? biomeFormat;
+	for (const path of ctx.report.written) await format(path, project);
 	await (opts.runSync ?? sync)(project);
 	const path = join(project.root, "tatara.json");
 	const config = JSON.parse(await readFile(path, "utf8")) as ProjectConfig;
@@ -85,7 +87,7 @@ export async function upgrade(project: Project, opts: UpgradeOptions = {}): Prom
 	if (JSON.stringify(next) !== JSON.stringify(config)) {
 		await writeFile(path, `${JSON.stringify(next, null, "\t")}\n`);
 		// JSON.stringify's layout fails the app's own lint, as in `tatara new`
-		await (opts.formatFile ?? biomeFormat)("tatara.json", project);
+		await format("tatara.json", project);
 	}
 	return ctx.report;
 }
