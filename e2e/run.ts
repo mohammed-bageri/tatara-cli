@@ -7,6 +7,7 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseEnv } from "node:util";
+import { hashTrackedFiles } from "../packages/cli/src/project/hashes.ts";
 import { SCENARIOS, type Scenario } from "./scenarios.ts";
 
 const ROOT = resolve(import.meta.dirname, "..");
@@ -501,6 +502,16 @@ async function runScenario(
 			if (res.code !== 0) throw new Error(res.out.slice(-1500));
 			if (res.out.includes("Formatting reported problems"))
 				throw new Error(`formatting problems:\n${res.out.slice(-1500)}`);
+			const recorded = (
+				JSON.parse(readFileSync(join(dir, "tatara.json"), "utf8")) as {
+					generated?: { files: Record<string, string> };
+				}
+			).generated?.files;
+			if (!recorded) throw new Error("tatara.json has no generated.files");
+			const actual = await hashTrackedFiles(dir);
+			const paths = [...new Set([...Object.keys(recorded), ...Object.keys(actual)])].sort();
+			const differs = paths.find((p) => recorded[p] !== actual[p]);
+			if (differs) throw new Error(`generated.files does not match ${differs} on disk`);
 			remapPorts(dir, 10_000 + slot * 100, project);
 		})) &&
 		(await step("services", async () => {

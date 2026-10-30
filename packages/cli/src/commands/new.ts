@@ -1,5 +1,6 @@
 import { existsSync, readdirSync } from "node:fs";
-import { resolve } from "node:path";
+import { readFile, writeFile } from "node:fs/promises";
+import { join, resolve } from "node:path";
 import * as p from "@clack/prompts";
 import pc from "picocolors";
 import { x } from "tinyexec";
@@ -14,8 +15,10 @@ import type {
 	Orm,
 	PackageManager,
 } from "../features/types.ts";
+import { cliVersion } from "../paths.ts";
 import { pmCommands } from "../pm.ts";
-import { loadProject } from "../project/config.ts";
+import { loadProject, type ProjectConfig } from "../project/config.ts";
+import { hashTrackedFiles } from "../project/hashes.ts";
 import { afterCreate } from "./post-create.ts";
 import { sync } from "./sync.ts";
 
@@ -263,6 +266,17 @@ export async function newApp(dir: string | undefined, rawFlags: NewFlags): Promi
 		}
 	}
 
+	// last, after formatting: these hashes are what `tatara upgrade` compares the app against
+	await recordGenerated(root);
+	if (flags.install !== false) {
+		// tatara.json is not tracked, so formatting it again does not change the recorded hashes
+		const [exec, ...execArgs] = pm.exec.split(" ");
+		await x(exec ?? "npx", [...execArgs, "biome", "check", "--write", "tatara.json"], {
+			nodeOptions: { cwd: root },
+			throwOnError: false,
+		});
+	}
+
 	if (flags.git !== false) {
 		const git = await x("git", ["init", "-q", "-b", "main"], {
 			nodeOptions: { cwd: root },
@@ -285,4 +299,11 @@ export async function newApp(dir: string | undefined, rawFlags: NewFlags): Promi
 	if (interactive) p.outro(`Done. Next:\n\n  ${next.join("\n  ")}`);
 	else console.log(`Created ${root}\nNext:\n  ${next.join("\n  ")}`);
 	return root;
+}
+
+async function recordGenerated(root: string): Promise<void> {
+	const path = join(root, "tatara.json");
+	const config = JSON.parse(await readFile(path, "utf8")) as ProjectConfig;
+	config.generated = { cli: cliVersion(), files: await hashTrackedFiles(root) };
+	await writeFile(path, `${JSON.stringify(config, null, "\t")}\n`);
 }

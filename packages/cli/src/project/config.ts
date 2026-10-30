@@ -20,6 +20,8 @@ export interface ProjectConfig {
 	authMethods: AuthMethod[];
 	addons: Addon[];
 	packageManager: PackageManager;
+	/** What `tatara new` / `tatara upgrade` last wrote: CLI version and framework file hashes */
+	generated?: { cli: string; files: Record<string, string> };
 }
 
 export class NotATataraProject extends Error {

@@ -31,7 +31,17 @@
 			"items": { "enum": ["authz", "jobs", "admin", "storage", "email", "i18n"] },
 			"uniqueItems": true
 		},
-		"packageManager": { "enum": ["pnpm", "npm", "bun"] }
+		"packageManager": { "enum": ["pnpm", "npm", "bun"] },
+		"generated": {
+			"description": "Written by tatara new / tatara upgrade: the CLI version and a hash of each framework file it wrote. Used by tatara upgrade.",
+			"type": "object",
+			"properties": {
+				"cli": { "type": "string" },
+				"files": { "type": "object", "additionalProperties": { "type": "string" } }
+			},
+			"required": ["cli", "files"],
+			"additionalProperties": false
+		}
 	},
 	"additionalProperties": false
 }
