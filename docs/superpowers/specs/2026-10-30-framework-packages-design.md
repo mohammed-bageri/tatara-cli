@@ -57,7 +57,7 @@ tatara.json                 records features and installed @tatara/* packages
 | `@tatara/core` | `defineCommand`, `flag()`, command runner, `localDefault()`, lifecycle and shutdown registry, readiness registry, logger options (Cloud Logging format) | zod, pino | every app |
 | `@tatara/http` | `createHttpApp`, `createRouter`, `defineRoutes`, `startServer`, error classes + handler, envelope (`success`, `paginated`), `jsonBody`/`jsonContent`/`errorResponses`, validation hook, request context, trusted client IP | hono, @hono/zod-openapi | every app with HTTP |
 | `@tatara/testing` | `client()` in-process API helper, per-worker database URLs, `resetDatabase` | vitest | dev dependency |
-| `@tatara/prisma`, `@tatara/drizzle` | migrate, truncate/drop helpers, db readiness check, test DB setup | prisma / drizzle-orm | apps with that ORM |
+| `@tatara/db` | `newId`, `defineSeed`; per-driver admin in sub-paths (`/postgres`, `/mariadb`, `/mysql2`: ensure, drop, truncate) and per-ORM migrations (`/prisma`, `/drizzle-postgres`, `/drizzle-mysql`). The app keeps one-line `src/core/db/admin.ts` / `migrate.ts` re-exports naming its driver | pg / mariadb / mysql2 / drizzle-orm (all optional) | apps with a database |
 | `@tatara/auth` | principal type + `attachPrincipal`, `requireAuth`, `requireRole`, `mergeAuthOpenApi`, dev outbox, delivery helpers, test helpers (`asUser`, `authenticate`) | better-auth | apps with auth |
 | `@tatara/keycloak` | `keycloakTokens()` better-auth plugin, token verification, `keycloakToken()` test signer | better-auth, jose | apps with the keycloak method |
 | `@tatara/authz` | permissions catalog types, `definePermissions`, resolver, cache, middleware, services, store interface, built-in roles | hono | apps with authz |
@@ -131,7 +131,7 @@ Each step is one release plus MeemAin moving to it.
 | 0 | Monorepo ready for many packages: shared build/test config, Changesets, CI publish, the codemod harness and `upgrade` skeleton, a manual bench | Everything else depends on it |
 | 1 | `@tatara/core` | No dependencies; smallest |
 | 2 | `@tatara/http` | Every app uses it; most of this week's fixes were here |
-| 3 | `@tatara/testing` + `@tatara/prisma` / `@tatara/drizzle` | Needed by every later package's tests |
+| 3 | `@tatara/testing` + `@tatara/db` | Needed by every later package's tests. *(One `@tatara/db` with driver sub-paths instead of separate prisma/drizzle packages: the helpers are tiny, share names, and optional peers keep unused drivers out of installs.)* |
 | 4 | `@tatara/auth` + `@tatara/keycloak` | Depends on http |
 | 5 | `@tatara/authz` + store adapters | Largest; depends on auth |
 | 6 | `@tatara/storage`, `@tatara/email`, `@tatara/i18n`, `@tatara/jobs` | Independent add-ons |

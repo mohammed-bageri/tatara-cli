@@ -16,6 +16,7 @@ export const base: Feature = {
 		"pino",
 	],
 	devDependencies: [
+		"@tatara/testing",
 		"@tatara/cli",
 		"typescript",
 		"@types/node",

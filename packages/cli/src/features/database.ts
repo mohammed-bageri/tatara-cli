@@ -17,6 +17,7 @@ export const db: Feature = {
 	id: "db",
 	kind: "database",
 	label: "Database (shared)",
+	dependencies: ["@tatara/db"],
 	scripts: {
 		"db:generate": "tatara db generate",
 		"db:migrate": "tatara db migrate",
@@ -41,7 +42,7 @@ export const db: Feature = {
 			file: "tests/setup.ts",
 			slot: "setup",
 			content: [
-				'import { workerDatabaseUrl } from "#tests/helpers/database-url";',
+				'import { workerDatabaseUrl } from "@tatara/testing";',
 				"",
 				"// One database per worker, created by tests/global-setup.ts.",
 				'process.env.DATABASE_URL = workerDatabaseUrl(process.env.DATABASE_URL ?? "", process.env.VITEST_POOL_ID ?? "1");',

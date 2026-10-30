@@ -2,7 +2,7 @@ import { betterAuth } from "better-auth";
 import { bearer, openAPI } from "better-auth/plugins";
 import { database } from "#core/auth/adapter";
 import { env } from "#core/config/env";
-import { newId } from "#core/db/id";
+import { newId } from "@tatara/db";
 // tatara:slot imports
 
 export const auth = betterAuth({

@@ -2,7 +2,7 @@ import type { OverlayEffect, Scope } from "#core/authz/constants";
 import { SYSTEM_ORG_ID } from "#core/authz/constants";
 import type { AuthzStore, OverlayRow, PermissionGrant, RoleRow } from "#core/authz/types";
 import { db } from "#core/db/client";
-import { newId } from "#core/db/id";
+import { newId } from "@tatara/db";
 
 const toScope = (scope: string): Scope | null => (scope === "" ? null : (scope as Scope));
 

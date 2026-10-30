@@ -106,8 +106,12 @@ export const betterAuth: Feature = {
 		},
 		{
 			file: "src/core/http/app.ts",
-			slot: "openapi",
-			content: 'if (name === "api") await mergeAuthOpenApi(document, `${API_PREFIX}/auth`);',
+			slot: "openapi-options",
+			content: [
+				"async extend(document) {",
+				'\tif (name === "api") await mergeAuthOpenApi(document, `${API_PREFIX}/auth`);',
+				"},",
+			].join("\n"),
 		},
 		{
 			file: "src/core/http/app.ts",

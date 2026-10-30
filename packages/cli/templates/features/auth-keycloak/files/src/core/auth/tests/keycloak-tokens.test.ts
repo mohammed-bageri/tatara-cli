@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { auth } from "#core/auth/auth";
 import { issuer } from "#core/auth/keycloak";
 import { env } from "#core/config/env";
-import { newId } from "#core/db/id";
+import { newId } from "@tatara/db";
 import { api } from "#tests/helpers/api";
 import { createTestUser, keycloakToken } from "#tests/helpers/auth";
 import { resetDatabase } from "#tests/helpers/db";

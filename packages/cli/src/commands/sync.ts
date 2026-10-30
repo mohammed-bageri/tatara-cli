@@ -156,7 +156,7 @@ export type PermissionKey =
 			join(out, "seeds.ts"),
 			listModule(seeds, {
 				prefix: "seed",
-				typeImport: 'import type { SeedDefinition } from "#core/db/seed";',
+				typeImport: 'import type { SeedDefinition } from "@tatara/db";',
 				typeName: "SeedDefinition",
 				exportName: "seeds",
 			}),

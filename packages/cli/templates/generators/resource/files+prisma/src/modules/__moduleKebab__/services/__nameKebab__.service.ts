@@ -1,5 +1,5 @@
 import { db, type Executor } from "#core/db/client";
-import { newId } from "#core/db/id";
+import { newId } from "@tatara/db";
 import { NotFoundError } from "@tatara/http";
 import type { PaginationQuery } from "@tatara/http";
 import type {

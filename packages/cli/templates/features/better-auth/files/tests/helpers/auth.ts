@@ -1,5 +1,5 @@
 import { auth } from "#core/auth/auth";
-import { newId } from "#core/db/id";
+import { newId } from "@tatara/db";
 // tatara:slot imports
 
 export interface AsUserOptions {

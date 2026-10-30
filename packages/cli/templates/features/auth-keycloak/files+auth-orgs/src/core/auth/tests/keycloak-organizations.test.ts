@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { auth } from "#core/auth/auth";
-import { newId } from "#core/db/id";
+import { newId } from "@tatara/db";
 import { api } from "#tests/helpers/api";
 import { keycloakToken } from "#tests/helpers/auth";
 import { resetDatabase } from "#tests/helpers/db";

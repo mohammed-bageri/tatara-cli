@@ -317,9 +317,11 @@ export const i18n: Feature = {
 		},
 		{
 			file: "src/core/http/app.ts",
-			slot: "error-message",
-			content:
-				'if (err.translatable) message = t(c.get("language"), `errors.${err.code}`, message);',
+			slot: "error-options",
+			content: [
+				"message: (err, c) =>",
+				'\terr.translatable ? t(c.get("language"), `errors.${err.code}`, err.message) : err.message,',
+			].join("\n"),
 		},
 		{
 			file: "AGENTS.md",

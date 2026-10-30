@@ -29,16 +29,10 @@ export function createHttpApp(name: AppName, options: { title: string }) {
 	mountRoutes(app, routes, { app: name, prefix: API_PREFIX });
 	serveOpenApi(app, {
 		title: options.title,
-		async extend(document) {
-			// tatara:slot openapi
-		},
+		// tatara:slot openapi-options
 	});
 	handleErrors(app, {
-		message(err, c) {
-			let message = err.message;
-			// tatara:slot error-message
-			return message;
-		},
+		// tatara:slot error-options
 	});
 	return app;
 }

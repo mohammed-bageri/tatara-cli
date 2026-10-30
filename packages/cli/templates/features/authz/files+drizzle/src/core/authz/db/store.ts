@@ -10,7 +10,7 @@ import {
 } from "#core/authz/db/authz.schema";
 import type { AuthzStore, OverlayRow, PermissionGrant, RoleRow } from "#core/authz/types";
 import { db } from "#core/db/client";
-import { newId } from "#core/db/id";
+import { newId } from "@tatara/db";
 
 const toScope = (scope: string): Scope | null => (scope === "" ? null : (scope as Scope));
 

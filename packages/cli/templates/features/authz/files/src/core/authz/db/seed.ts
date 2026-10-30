@@ -1,5 +1,5 @@
 import { syncSystemRoles } from "#core/authz/services/sync";
-import { defineSeed } from "#core/db/seed";
+import { defineSeed } from "@tatara/db";
 
 export default defineSeed({
 	name: "authz:system-roles",

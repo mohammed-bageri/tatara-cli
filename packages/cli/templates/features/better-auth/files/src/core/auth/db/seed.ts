@@ -1,6 +1,6 @@
 import { auth } from "#core/auth/auth";
 import { env } from "#core/config/env";
-import { defineSeed } from "#core/db/seed";
+import { defineSeed } from "@tatara/db";
 
 /** Development admin account (never created in production). */
 export default defineSeed({
