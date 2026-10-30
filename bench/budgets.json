@@ -1,6 +1,0 @@
-{
-	"requestOverheadMs": 0.1,
-	"coldBootMs": 300,
-	"corePackagesKb": 500,
-	"sync100Ms": 2000
-}

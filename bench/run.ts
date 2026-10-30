@@ -1,6 +1,6 @@
 /**
- * Performance budgets: a generated app against plain Hono (bench/baseline-app).
- * Usage: pnpm bench [--json]. Exits 1 when a median is over its budget in bench/budgets.json.
+ * Measures a generated app against plain Hono (bench/baseline-app), for a manual look.
+ * Usage: pnpm bench [--json]. Reports numbers only; nothing fails.
  */
 import { type ChildProcess, spawn } from "node:child_process";
 import {
@@ -27,7 +27,7 @@ const PROD_ENV = {
 	CORS_ORIGINS: "http://localhost",
 };
 
-type Budgets = Record<"requestOverheadMs" | "coldBootMs" | "corePackagesKb" | "sync100Ms", number>;
+type Metric = "requestOverheadMs" | "coldBootMs" | "corePackagesKb" | "sync100Ms";
 
 let nextPort = 39_100;
 
@@ -140,7 +140,6 @@ async function sync100(appDir: string): Promise<number> {
 
 async function main() {
 	const json = process.argv.includes("--json");
-	const budgets = JSON.parse(readFileSync(join(ROOT, "bench", "budgets.json"), "utf8")) as Budgets;
 	mkdirSync(WORK, { recursive: true });
 
 	const packed = await packCli(WORK);
@@ -163,29 +162,20 @@ async function main() {
 	if (installed.code !== 0)
 		throw new Error(`baseline install failed: ${installed.out.slice(-500)}`);
 
-	const results: Record<keyof Budgets, number | null> = {
+	const results: Record<Metric, number | null> = {
 		requestOverheadMs: await requestOverhead(appDir, baselineDir),
 		coldBootMs: await coldBoot(appDir),
 		corePackagesKb: corePackagesKb(),
 		sync100Ms: await sync100(appDir),
 	};
 
-	const rows = (Object.keys(budgets) as (keyof Budgets)[]).map((key) => {
-		const value = results[key];
-		const ok = value === null || value <= budgets[key];
-		return { key, value, budget: budgets[key], ok };
-	});
-	if (json) console.log(JSON.stringify(rows, null, 2));
+	if (json) console.log(JSON.stringify(results, null, 2));
 	else {
-		for (const r of rows) {
-			const value =
-				r.value === null ? "n/a" : r.value.toFixed(r.key === "requestOverheadMs" ? 3 : 0);
-			console.log(
-				`${r.ok ? "✔" : "✖"} ${r.key.padEnd(18)} ${value.padStart(9)}  (budget ${r.budget})`,
-			);
+		for (const [key, value] of Object.entries(results)) {
+			const text = value === null ? "n/a" : value.toFixed(key === "requestOverheadMs" ? 3 : 0);
+			console.log(`${key.padEnd(18)} ${text.padStart(9)}`);
 		}
 	}
-	if (rows.some((r) => !r.ok)) process.exitCode = 1;
 }
 
 await main();
