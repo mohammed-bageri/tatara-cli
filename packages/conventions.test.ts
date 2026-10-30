@@ -102,3 +102,18 @@ describe("library package conventions", () => {
 		}
 	});
 });
+
+describe("templates/versions.json", () => {
+	it("pins every library package at its current version", () => {
+		const versions = JSON.parse(
+			readFileSync(join(ROOT, "packages", "cli", "templates", "versions.json"), "utf8"),
+		) as Record<string, string>;
+		for (const dir of libraries) {
+			const pkg = JSON.parse(readFileSync(join(ROOT, "packages", dir, "package.json"), "utf8")) as {
+				name: string;
+				version: string;
+			};
+			expect(versions[pkg.name], `${pkg.name} in versions.json`).toBe(pkg.version);
+		}
+	});
+});
