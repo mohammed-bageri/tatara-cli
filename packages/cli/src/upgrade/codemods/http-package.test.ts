@@ -101,14 +101,33 @@ describe("0.3.0 http-package codemod", () => {
 		expect(server).toContain('startServer(app, { port: env.PORT, name: "api", logger })');
 	});
 
-	it("keeps a customised app.ts and the middleware it imports", async () => {
+	it("changes nothing in the group when app.ts is customised, and says why", async () => {
 		const custom = 'import { errorHandler } from "#core/http/middleware/error-handler";\n// mine\n';
 		const project = app({ "src/core/http/app.ts": custom });
 		const report = await run(project);
 		expect(read(project, "src/core/http/app.ts")).toBe(custom);
-		expect(report.removed).not.toContain("src/core/http/middleware/error-handler.ts");
-		expect(report.removed).not.toContain("src/core/http/middleware/request-context.ts");
+		expect(report.removed).toEqual([]);
+		expect(read(project, "src/modules/notes/services/notes.ts")).toContain('"#core/http/errors"');
 		expect(report.notes.join("\n")).toContain("src/core/http/app.ts");
+	});
+
+	it("changes nothing when errors.ts is customised (its classes would not match the package's)", async () => {
+		const project = app({
+			"src/core/http/errors.ts": "export class AppError extends Error {}\nexport class Mine {}\n",
+		});
+		const report = await run(project);
+		expect(report.removed).toEqual([]);
+		expect(read(project, "src/core/http/app.ts")).toBe(OLD["src/core/http/app.ts"]);
+		expect(report.notes.join("\n")).toContain("src/core/http/errors.ts");
+	});
+
+	it("changes nothing when something else imports a moved file", async () => {
+		const project = app({
+			"tests/helpers/boot.ts": 'import { startServer } from "#core/http/server";\n',
+		});
+		const report = await run(project);
+		expect(report.removed).toEqual([]);
+		expect(report.notes.join("\n")).toContain("tests/helpers/boot.ts");
 	});
 
 	it("is idempotent", async () => {
