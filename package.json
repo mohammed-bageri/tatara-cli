@@ -14,12 +14,13 @@
 		"test": "vitest run",
 		"e2e": "node e2e/run.ts",
 		"versions:update": "node scripts/update-versions.ts",
-		"verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+		"verify": "pnpm lint && pnpm build:libs && pnpm typecheck && pnpm test && pnpm build",
 		"new-package": "node scripts/new-package.ts",
 		"changeset": "changeset",
 		"version-packages": "changeset version && pnpm install --no-frozen-lockfile",
 		"release": "pnpm build && changeset publish",
-		"bench": "node bench/run.ts"
+		"bench": "node bench/run.ts",
+		"build:libs": "pnpm -r --filter \"./packages/*\" --filter \"!@tatara/cli\" --filter \"!create-tatara\" run build"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.5.15",
