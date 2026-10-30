@@ -7,6 +7,8 @@ import type { Baseline } from "./baseline.ts";
 
 export interface UpgradeReport {
 	ran: string[];
+	/** files a codemod wrote (relative paths) */
+	written: string[];
 	removed: string[];
 	kept: { path: string; diff: string }[];
 	notes: string[];
@@ -32,9 +34,10 @@ export function createContext(
 	baseline: Baseline,
 	opts: { dryRun?: boolean } = {},
 ): UpgradeContext {
-	const report: UpgradeReport = { ran: [], removed: [], kept: [], notes: [] };
+	const report: UpgradeReport = { ran: [], written: [], removed: [], kept: [], notes: [] };
 	const abs = (path: string) => join(project.root, path);
 	const write = async (path: string, text: string) => {
+		if (!report.written.includes(path)) report.written.push(path);
 		if (opts.dryRun) return;
 		await mkdir(dirname(abs(path)), { recursive: true });
 		await writeFile(abs(path), text);

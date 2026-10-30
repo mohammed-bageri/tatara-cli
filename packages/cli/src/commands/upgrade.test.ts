@@ -178,4 +178,38 @@ describe("upgrade", () => {
 		expect(read(project.root, "src/core/http/errors.ts")).toBe(ORIGINAL);
 		expect(read(project.root, "tatara.json")).toBe(before);
 	});
+
+	it("keeps an edited framework file across two upgrades", async () => {
+		const project = fixture({ "src/core/http/errors.ts": "export class Mine {}\n" });
+		await upgrade(project, { ...deps(project, "0.1.4"), codemods: [] });
+		const later = loadProject(project.root);
+		const report = await upgrade(later, {
+			...deps(later, "0.1.5"),
+			codemods: [
+				{
+					version: "0.1.5",
+					id: "remove",
+					description: "",
+					run: async (ctx) => {
+						await ctx.removeIfUnchanged("src/core/http/errors.ts");
+					},
+				},
+			],
+		});
+		expect(report.kept.map((k) => k.path)).toEqual(["src/core/http/errors.ts"]);
+		expect(read(project.root, "src/core/http/errors.ts")).toBe("export class Mine {}\n");
+	});
+
+	it("formats tatara.json after changing the version", async () => {
+		const project = fixture();
+		const formatted: string[] = [];
+		await upgrade(project, {
+			...deps(project),
+			codemods: [],
+			formatFile: async (file) => {
+				formatted.push(file);
+			},
+		});
+		expect(formatted).toEqual(["tatara.json"]);
+	});
 });

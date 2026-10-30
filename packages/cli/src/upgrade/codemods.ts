@@ -1,5 +1,9 @@
 import type { UpgradeContext } from "./context.ts";
 
+/**
+ * A codemod must be idempotent: if a later codemod or `sync` fails, the app keeps its old version
+ * and the next `tatara upgrade` runs every due codemod again, including ones that already ran.
+ */
 export interface Codemod {
 	/** CLI version that introduces it; runs when an app upgrades across this version */
 	version: string;

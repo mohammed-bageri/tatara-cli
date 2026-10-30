@@ -5,7 +5,14 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import type { Project, ProjectConfig } from "../project/config.ts";
 import { hashContent } from "../project/hashes.ts";
-import { createBaseline, type FileHashes, releaseBaseline, renderRelease } from "./baseline.ts";
+import {
+	baselineCacheKey,
+	createBaseline,
+	type FileHashes,
+	releaseBaseline,
+	renderRelease,
+	renderTarget,
+} from "./baseline.ts";
 
 const minimalConfig: ProjectConfig = {
 	version: "0.1.1",
@@ -70,6 +77,26 @@ describe("createBaseline", () => {
 			cliVersion: "0.1.3",
 		});
 		expect(await baseline.isUnchanged("src/core/a.ts", "edited\n")).toBe(false);
+	});
+});
+
+describe("baseline cache and render target", () => {
+	it("renders into a folder named after the app", () => {
+		expect(renderTarget("/tmp/x", { ...minimalConfig, name: "game-api" })).toBe("/tmp/x/game-api");
+	});
+
+	it("keys the cache on the app name", () => {
+		expect(baselineCacheKey("0.1.3", { ...minimalConfig, name: "a" })).not.toBe(
+			baselineCacheKey("0.1.3", { ...minimalConfig, name: "b" }),
+		);
+	});
+
+	it("keys the cache on the Biome version and config", () => {
+		const key = (biomeVersion: string, config = "{}") =>
+			baselineCacheKey("0.1.3", minimalConfig, { config, version: biomeVersion });
+		expect(key("2.5.15")).not.toBe(key("2.5.16"));
+		expect(key("2.5.15", "{}")).not.toBe(key("2.5.15", '{"x":1}'));
+		expect(key("2.5.15")).not.toBe(baselineCacheKey("0.1.3", minimalConfig));
 	});
 });
 

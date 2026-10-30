@@ -1,6 +1,8 @@
+import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import pc from "picocolors";
+import { x } from "tinyexec";
 import { cliVersion as installedCliVersion } from "../paths.ts";
 import type { Project, ProjectConfig } from "../project/config.ts";
 import { hashTrackedFiles } from "../project/hashes.ts";
@@ -15,6 +17,35 @@ export interface UpgradeOptions {
 	cliVersion?: string;
 	baseline?: Baseline;
 	runSync?: (project: Project) => Promise<unknown>;
+	/** formats a file in the app (default: the app's own Biome, when installed) */
+	formatFile?: (file: string, project: Project) => Promise<void>;
+}
+
+async function biomeFormat(file: string, project: Project): Promise<void> {
+	const biome = join(project.root, "node_modules", ".bin", "biome");
+	if (!existsSync(biome)) return;
+	await x(biome, ["check", "--write", file], {
+		throwOnError: false,
+		nodeOptions: { cwd: project.root },
+	});
+}
+
+/**
+ * The recorded hashes stay what tatara generated: files the app changed keep their old (generated)
+ * hash, and only files this upgrade wrote or removed are updated.
+ */
+async function nextRecord(
+	project: Project,
+	report: UpgradeReport,
+): Promise<Record<string, string>> {
+	const record = { ...(project.config.generated?.files ?? {}) };
+	for (const path of report.removed) delete record[path];
+	const current = await hashTrackedFiles(project.root);
+	for (const path of report.written) {
+		const hash = current[path];
+		if (hash) record[path] = hash;
+	}
+	return record;
 }
 
 /**
@@ -49,10 +80,13 @@ export async function upgrade(project: Project, opts: UpgradeOptions = {}): Prom
 	const next: ProjectConfig = {
 		...config,
 		version: target,
-		generated: { cli: target, files: await hashTrackedFiles(project.root) },
+		generated: { cli: target, files: await nextRecord(project, ctx.report) },
 	};
-	const text = `${JSON.stringify(next, null, "\t")}\n`;
-	if (text !== `${JSON.stringify(config, null, "\t")}\n`) await writeFile(path, text);
+	if (JSON.stringify(next) !== JSON.stringify(config)) {
+		await writeFile(path, `${JSON.stringify(next, null, "\t")}\n`);
+		// JSON.stringify's layout fails the app's own lint, as in `tatara new`
+		await (opts.formatFile ?? biomeFormat)("tatara.json", project);
+	}
 	return ctx.report;
 }
 

@@ -63,9 +63,14 @@ function newFlags(config: ProjectConfig): string[] {
 	];
 }
 
+/** Templates contain the app name, so the release must render an app with the same name. */
+export function renderTarget(base: string, config: ProjectConfig): string {
+	return join(base, config.name);
+}
+
 /** What `@tatara/cli@<version> new` writes for these options (not installed, not formatted). */
 export async function renderRelease(version: string, config: ProjectConfig): Promise<string> {
-	const dir = join(await mkdtemp(join(tmpdir(), `tatara-${version}-`)), "app");
+	const dir = renderTarget(await mkdtemp(join(tmpdir(), `tatara-${version}-`)), config);
 	const res = await x(
 		"npx",
 		[
@@ -105,25 +110,59 @@ function digest(text: string): string {
  * (an app root), files are first formatted with that app's Biome and biome.json, so formatting
  * differences don't count as changes. Cached on disk.
  */
+export interface BiomeFormatter {
+	/** contents of the app's biome.json */
+	config: string;
+	/** installed @biomejs/biome version */
+	version: string;
+}
+
+export function baselineCacheKey(
+	version: string,
+	config: ProjectConfig,
+	biome?: BiomeFormatter,
+): string {
+	const inputs = JSON.stringify({ name: config.name, flags: newFlags(config) });
+	const format = biome ? `-fmt-${digest(`${biome.version}\n${biome.config}`)}` : "";
+	return `${version}-${digest(inputs)}${format}`;
+}
+
+async function appBiome(appRoot: string): Promise<BiomeFormatter | undefined> {
+	const configFile = join(appRoot, "biome.json");
+	const pkgFile = join(appRoot, "node_modules", "@biomejs", "biome", "package.json");
+	if (!existsSync(configFile) || !existsSync(pkgFile)) return undefined;
+	const { version } = JSON.parse(await readFile(pkgFile, "utf8")) as { version: string };
+	return { config: await readFile(configFile, "utf8"), version };
+}
+
+/**
+ * Hashes of the tracked files `@tatara/cli@<version>` generates for `config`. With `formatWith`
+ * (an app root with Biome installed), files are first formatted with that app's Biome and
+ * biome.json, so formatting differences don't count as changes. Cached on disk.
+ */
 export async function releaseBaseline(
 	version: string,
 	config: ProjectConfig,
 	opts: { formatWith?: string } = {},
 ): Promise<FileHashes> {
-	const options = JSON.stringify(newFlags(config));
-	const biomeConfig = opts.formatWith ? join(opts.formatWith, "biome.json") : undefined;
-	const formatKey =
-		biomeConfig && existsSync(biomeConfig)
-			? `-fmt-${digest(await readFile(biomeConfig, "utf8"))}`
-			: "";
-	const cacheFile = join(CACHE_DIR, `${version}-${digest(options)}${formatKey}.json`);
+	const biome = opts.formatWith ? await appBiome(opts.formatWith) : undefined;
+	const cacheFile = join(CACHE_DIR, `${baselineCacheKey(version, config, biome)}.json`);
 	if (existsSync(cacheFile)) return JSON.parse(await readFile(cacheFile, "utf8")) as FileHashes;
 
 	const dir = await renderRelease(version, config);
-	if (formatKey && opts.formatWith && biomeConfig) {
-		await cp(biomeConfig, join(dir, "biome.json"));
-		const biome = join(opts.formatWith, "node_modules", ".bin", "biome");
-		await x(biome, ["check", "--write", "."], { throwOnError: false, nodeOptions: { cwd: dir } });
+	if (biome && opts.formatWith) {
+		await cp(join(opts.formatWith, "biome.json"), join(dir, "biome.json"));
+		const bin = join(opts.formatWith, "node_modules", ".bin", "biome");
+		const res = await x(bin, ["check", "--write", "."], {
+			throwOnError: false,
+			nodeOptions: { cwd: dir },
+		});
+		// exit 1 can mean lint findings Biome won't fix; only a missing or crashing Biome is fatal
+		if (res.exitCode !== 0 && res.exitCode !== 1) {
+			throw new Error(
+				`could not format the ${version} baseline with the app's Biome: ${res.stderr.slice(-300)}`,
+			);
+		}
 	}
 	const hashes = await hashTrackedFiles(dir);
 	mkdirSync(CACHE_DIR, { recursive: true });
