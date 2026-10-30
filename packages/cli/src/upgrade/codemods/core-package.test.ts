@@ -55,7 +55,9 @@ export type Logger = typeof logger;
 
 const GENERATED: Record<string, string> = {
 	"src/core/commands/define.ts": "export function defineCommand() {}\n",
-	"src/core/commands/runner.ts": "export function runCommand() {}\n",
+	// imports define, as the real runner does: removals must be decided before imports change
+	"src/core/commands/runner.ts":
+		'import type { CommandDefinition } from "#core/commands/define";\nexport function runCommand() {}\n',
 	"src/core/process/lifecycle.ts": "export function onShutdown() {}\n",
 	"src/core/http/health.ts": "export function registerReadinessCheck() {}\n",
 	"src/apps/cli/index.ts": CLI_011,

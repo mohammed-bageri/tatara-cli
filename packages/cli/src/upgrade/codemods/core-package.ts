@@ -105,16 +105,20 @@ export const corePackage: Codemod = {
 		"Use @tatara/core for commands, flags, lifecycle, readiness, logger options and localDefault",
 	async run(ctx) {
 		await ctx.addDependency(CORE, versionOf(CORE));
+		// decide every removal before touching imports: the moved files import each other, and a
+		// rewritten import would make an untouched copy look customised
+		const gone: string[] = [];
 		for (const [path, specifier] of Object.entries(MOVED)) {
 			const status = await ctx.removeIfUnchanged(path);
 			if (status === "kept") {
 				ctx.report.notes.push(
 					`${path} is customised; its imports still point at it. Move the change into the app or eject.`,
 				);
-				continue;
+			} else {
+				gone.push(specifier);
 			}
-			await ctx.rewriteImports(specifier, CORE);
 		}
+		for (const specifier of gone) await ctx.rewriteImports(specifier, CORE);
 		await rewriteEnv(ctx);
 		await passLogger(ctx);
 		await useLoggerOptions(ctx);
