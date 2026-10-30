@@ -9,10 +9,10 @@ export {
 export { mergeAuthOpenApi, type OpenApiAuth } from "./openapi.ts";
 export {
 	type AuthEnv,
-	attachPrincipal,
 	currentPrincipal,
 	type Principal,
 	type PrincipalResolver,
+	principalMiddleware,
 	requireAuth,
 	requireRole,
 } from "./principal.ts";

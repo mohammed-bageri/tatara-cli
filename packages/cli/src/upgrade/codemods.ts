@@ -1,3 +1,4 @@
+import { authPackage } from "./codemods/auth-package.ts";
 import { corePackage } from "./codemods/core-package.ts";
 import { dbTesting } from "./codemods/db-testing.ts";
 import { httpPackage } from "./codemods/http-package.ts";
@@ -16,4 +17,4 @@ export interface Codemod {
 }
 
 /** Every codemod tatara ships, oldest first. Each step that moves code into a package adds one. */
-export const CODEMODS: readonly Codemod[] = [corePackage, httpPackage, dbTesting];
+export const CODEMODS: readonly Codemod[] = [corePackage, httpPackage, dbTesting, authPackage];

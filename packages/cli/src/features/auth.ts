@@ -4,7 +4,7 @@ const AGENTS_AUTH = `## Auth
 
 - \`c.var.principal\` is set for every request with valid credentials: \`{ userId, orgId, roles, kind }\`.
 - Protect routes with \`middleware: [requireAuth()]\` or \`requireRole("admin")\` from
-  \`#core/auth/middleware\`, and declare \`security: [{ bearerAuth: [] }]\` so the route is
+  \`@tatara/auth\`, and declare \`security: [{ bearerAuth: [] }]\` so the route is
   documented as protected. Read the caller with \`currentPrincipal(c)\`.
 - In tests, \`asUser()\` from \`#tests/helpers/auth\` returns headers for a fresh authenticated user.
 `;
@@ -14,6 +14,7 @@ export const auth: Feature = {
 	id: "auth",
 	kind: "auth",
 	label: "Auth (shared)",
+	dependencies: ["@tatara/auth"],
 	slots: [
 		{
 			file: "src/core/http/app.ts",
@@ -48,7 +49,7 @@ const BETTER_AUTH_AGENTS = `### better-auth
 - Sessions work as cookies (browsers) and as \`Authorization: Bearer <session token>\` (mobile, APIs).
 - Outside production, every email and SMS is kept in an in-memory outbox:
   \`GET /api/dev/outbox?to=<address>\` returns the latest messages, including sign-in codes.
-- To send real SMS, implement \`SmsSender\` in \`src/core/auth/sms.ts\`.
+- To send real SMS, implement \`SmsSender\` (from \`@tatara/auth\`) in \`src/core/auth/sms.ts\`.
 `;
 
 const drizzlePg = ["drizzle", "postgres"];
@@ -91,12 +92,12 @@ export const betterAuth: Feature = {
 		{
 			file: "src/core/http/app.ts",
 			slot: "imports",
-			content: 'import { outboxEnabled, readOutbox } from "#core/auth/delivery";',
+			content: 'import { outbox } from "#core/auth/delivery";',
 		},
 		{
 			file: "src/core/http/app.ts",
 			slot: "imports",
-			content: 'import { mergeAuthOpenApi } from "#core/auth/openapi";',
+			content: 'import { mergeAuthOpenApi } from "@tatara/auth";',
 		},
 		{
 			// browser clients (e.g. WebGL builds) read the bearer token from this response header
@@ -109,7 +110,7 @@ export const betterAuth: Feature = {
 			slot: "openapi-options",
 			content: [
 				"async extend(document) {",
-				'\tif (name === "api") await mergeAuthOpenApi(document, `${API_PREFIX}/auth`);',
+				'\tif (name === "api") await mergeAuthOpenApi(document, auth, `${API_PREFIX}/auth`);',
 				"},",
 			].join("\n"),
 		},
@@ -120,8 +121,8 @@ export const betterAuth: Feature = {
 			content: [
 				'if (name === "api") {',
 				'\tapp.on(["GET", "POST"], `${API_PREFIX}/auth/*`, (c) => auth.handler(c.req.raw));',
-				"\tif (outboxEnabled()) {",
-				'\t\tapp.get(`${API_PREFIX}/dev/outbox`, (c) => c.json({ messages: readOutbox(c.req.query("to")) }));',
+				"\tif (outbox.enabled) {",
+				'\t\tapp.get(`${API_PREFIX}/dev/outbox`, (c) => c.json({ messages: outbox.read(c.req.query("to")) }));',
 				"\t}",
 				"}",
 			].join("\n"),
@@ -414,7 +415,7 @@ export const authOrgs: Feature = {
 const KEYCLOAK_AGENTS = `### Keycloak
 
 - The API also accepts Keycloak access tokens (\`Authorization: Bearer <token>\`). The
-  \`keycloakTokens()\` better-auth plugin (\`src/core/auth/keycloak-plugin.ts\`) verifies signature,
+  \`keycloakTokens()\` better-auth plugin (\`@tatara/keycloak\`) verifies signature,
   issuer, audience \`__APP_NAME__-api\` and expiry; login happens in the frontend via OIDC (PKCE)
   against the \`__APP_NAME__-web\` client.
 - The token's subject is the user id. The user (and a \`keycloak\` account) is created in
@@ -428,49 +429,15 @@ const KEYCLOAK_AGENTS = `### Keycloak
 `;
 
 const KEYCLOAK_TEST_HELPER = [
-	'const { publicKey, privateKey } = await generateKeyPair("RS256");',
-	"setKeySource(async (header) => {",
-	'\tif (header.kid !== "test") throw new Error("unknown key");',
-	"\treturn publicKey;",
-	"});",
-	"",
-	"export interface KeycloakTokenOptions {",
-	"\tsub?: string;",
-	"\temail?: string;",
-	"\temailVerified?: boolean;",
-	"\troles?: string[];",
-	"\torganization?: string[] | Record<string, unknown>;",
-	"\tusername?: string;",
-	"\tissuer?: string;",
-	"\taudience?: string;",
-	"\texpiresIn?: string | number;",
-	"}",
-	"",
 	"/** Signs an access token the API accepts, as if Keycloak issued it. */",
-	"export async function keycloakToken(options: KeycloakTokenOptions = {}): Promise<string> {",
-	"\tconst sub = options.sub ?? newId();",
-	"\treturn new SignJWT({",
-	"\t\temail: options.email ?? `user-${sub}@example.com`,",
-	"\t\temail_verified: options.emailVerified ?? true,",
-	"\t\tpreferred_username: options.username ?? `user-${sub.slice(0, 8)}`,",
-	'\t\troles: options.roles ?? ["user"],',
-	"\t\t...(options.organization ? { organization: options.organization } : {}),",
-	"\t})",
-	'\t\t.setProtectedHeader({ alg: "RS256", kid: "test" })',
-	"\t\t.setSubject(sub)",
-	"\t\t.setIssuer(options.issuer ?? issuer)",
-	"\t\t.setAudience(options.audience ?? env.KEYCLOAK_AUDIENCE)",
-	"\t\t.setIssuedAt()",
-	'\t\t.setExpirationTime(options.expiresIn ?? "5m")',
-	"\t\t.sign(privateKey);",
-	"}",
+	"export const keycloakToken = await useTestKeys(keycloak);",
 ].join("\n");
 
 export const authKeycloak: Feature = {
 	id: "auth-keycloak",
 	kind: "auth-method",
 	label: "Keycloak tokens",
-	dependencies: ["jose"],
+	dependencies: ["@tatara/keycloak", "jose"],
 	env: [
 		{
 			key: "KEYCLOAK_PORT",
@@ -524,48 +491,51 @@ export const authKeycloak: Feature = {
 		{
 			file: "src/core/auth/auth.ts",
 			slot: "imports",
-			content: 'import { keycloakTokens } from "#core/auth/keycloak-plugin";',
+			content: 'import { keycloakTokens } from "@tatara/keycloak";',
+		},
+		{
+			file: "src/core/auth/auth.ts",
+			slot: "imports",
+			content: 'import { keycloak } from "#core/auth/keycloak";',
+		},
+		{
+			file: "src/core/auth/auth.ts",
+			slot: "imports",
+			content: 'import { logger } from "#core/logging/logger";',
 		},
 		{
 			file: "src/core/auth/auth.ts",
 			slot: "plugins",
 			unless: ["auth-orgs"],
-			content: "keycloakTokens(),",
+			content: "keycloakTokens({ verifier: keycloak, logger }),",
 			order: 800,
 		},
 		{
 			file: "src/core/auth/auth.ts",
 			slot: "plugins",
 			when: ["auth-orgs"],
-			content: "keycloakTokens({ organizations: true }),",
+			content: "keycloakTokens({ verifier: keycloak, logger, organizations: true }),",
 			order: 800,
 		},
 		{
 			file: "src/core/auth/principal.ts",
-			slot: "no-session",
-			content: [
-				"if (!session) {",
-				'\tconst header = c.req.header("authorization");',
-				'\tconst token = header?.startsWith("Bearer ") ? header.slice(7) : undefined;',
-				"\tconst principal = token ? await auth.api.verifyKeycloakToken({ body: { token } }) : null;",
-				'\tif (principal) c.set("principal", principal);',
-				"}",
-			].join("\n"),
+			slot: "resolvers",
+			content: '(c) => keycloakPrincipal(auth, c.req.header("authorization")),',
+		},
+		{
+			file: "src/core/auth/principal.ts",
+			slot: "imports",
+			content: 'import { keycloakPrincipal } from "@tatara/keycloak";',
 		},
 		{
 			file: "tests/helpers/auth.ts",
 			slot: "imports",
-			content: 'import { generateKeyPair, SignJWT } from "jose";',
+			content: 'import { useTestKeys } from "@tatara/keycloak/testing";',
 		},
 		{
 			file: "tests/helpers/auth.ts",
 			slot: "imports",
-			content: 'import { issuer, setKeySource } from "#core/auth/keycloak";',
-		},
-		{
-			file: "tests/helpers/auth.ts",
-			slot: "imports",
-			content: 'import { env } from "#core/config/env";',
+			content: 'import { keycloak } from "#core/auth/keycloak";',
 		},
 		{ file: "tests/helpers/auth.ts", slot: "helpers", content: KEYCLOAK_TEST_HELPER },
 		{
@@ -575,7 +545,7 @@ export const authKeycloak: Feature = {
 			unless: ["auth-orgs"],
 			content: [
 				"if (options.roles) {",
-				"\tconst sub = newId();",
+				"\tconst sub = crypto.randomUUID();",
 				"\tconst token = await keycloakToken({ sub, roles: options.roles, email: options.email });",
 				"\treturn { userId: sub, headers: { authorization: `Bearer ${token}` } };",
 				"}",

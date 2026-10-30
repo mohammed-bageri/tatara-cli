@@ -70,7 +70,7 @@ function guardSlots(project: Project, n: Names): SlotFill[] {
 		}
 		add("auth-errors", "...errorResponses(401, 403),");
 	} else if (project.has("auth")) {
-		add("imports", 'import { requireAuth } from "#core/auth/middleware";');
+		add("imports", 'import { requireAuth } from "@tatara/auth";');
 		for (const route of Object.keys(ACTIONS)) {
 			add(
 				`guard-${route}`,

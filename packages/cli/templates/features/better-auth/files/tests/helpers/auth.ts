@@ -1,5 +1,5 @@
+import { createTestUser as createUser, sessionHeaders } from "@tatara/auth/testing";
 import { auth } from "#core/auth/auth";
-import { newId } from "@tatara/db";
 // tatara:slot imports
 
 export interface AsUserOptions {
@@ -12,14 +12,13 @@ export interface AsUserOptions {
 
 /** Creates a verified user and returns their id. */
 export async function createTestUser(options: AsUserOptions = {}): Promise<string> {
-	const ctx = await auth.$context;
-	const user = await ctx.internalAdapter.createUser({
-		email: options.email ?? `user-${newId()}@example.com`,
-		name: options.name ?? "Test User",
-		emailVerified: true,
-		// tatara:slot user-fields
-	}, { method: "admin" });
-	return user.id;
+	return createUser(auth, {
+		email: options.email,
+		name: options.name,
+		fields: {
+			// tatara:slot user-fields
+		},
+	});
 }
 
 /** A new user with a real session; the token is sent as a bearer token. */
@@ -28,9 +27,7 @@ export async function authenticate(
 ): Promise<{ userId: string; headers: Record<string, string> }> {
 	// tatara:slot authenticate
 	const userId = await createTestUser(options);
-	const ctx = await auth.$context;
-	const session = await ctx.internalAdapter.createSession(userId);
-	return { userId, headers: { authorization: `Bearer ${session.token}` } };
+	return { userId, headers: await sessionHeaders(auth, userId) };
 }
 
 /** Headers that authenticate as a new user. */

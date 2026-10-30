@@ -1,7 +1,7 @@
 import { generateKeyPair, SignJWT } from "jose";
 import { beforeEach, describe, expect, it } from "vitest";
 import { auth } from "#core/auth/auth";
-import { issuer } from "#core/auth/keycloak";
+import { keycloak } from "#core/auth/keycloak";
 import { env } from "#core/config/env";
 import { newId } from "@tatara/db";
 import { api } from "#tests/helpers/api";
@@ -63,7 +63,7 @@ describe("Keycloak access tokens", () => {
 		const forged = await new SignJWT({ roles: ["admin"] })
 			.setProtectedHeader({ alg: "RS256", kid: "test" })
 			.setSubject(newId())
-			.setIssuer(issuer)
+			.setIssuer(keycloak.issuer)
 			.setAudience(env.KEYCLOAK_AUDIENCE)
 			.setExpirationTime("5m")
 			.sign(privateKey);

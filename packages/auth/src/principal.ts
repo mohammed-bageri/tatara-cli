@@ -21,7 +21,7 @@ export type PrincipalResolver<E extends AuthEnv = AuthEnv> = (
 ) => Promise<Principal | null> | Principal | null;
 
 /** Sets `c.var.principal` from the first resolver that recognises the request. */
-export function attachPrincipal<E extends AuthEnv = AuthEnv>(
+export function principalMiddleware<E extends AuthEnv = AuthEnv>(
 	resolvers: PrincipalResolver<E>[],
 ): MiddlewareHandler<E> {
 	return createMiddleware<E>(async (c, next) => {

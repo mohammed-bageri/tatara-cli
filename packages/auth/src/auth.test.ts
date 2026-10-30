@@ -7,12 +7,12 @@ import { pino } from "pino";
 import { describe, expect, it } from "vitest";
 import {
 	type AuthEnv,
-	attachPrincipal,
 	consoleSmsSender,
 	createOutbox,
 	currentPrincipal,
 	mergeAuthOpenApi,
 	type Principal,
+	principalMiddleware,
 	requireAuth,
 	requireRole,
 	sessionPrincipal,
@@ -51,7 +51,7 @@ function app() {
 		defaults: { principal: null },
 	});
 	app.use(
-		attachPrincipal([
+		principalMiddleware([
 			(c) => sessionPrincipal(auth, c.req.raw.headers),
 			(c) => (c.req.header("x-service") ? service : null),
 		]),
@@ -63,7 +63,7 @@ function app() {
 	return app;
 }
 
-describe("attachPrincipal + sessionPrincipal", () => {
+describe("principalMiddleware + sessionPrincipal", () => {
 	it("turns a bearer session into a user principal with the user's roles", async () => {
 		const userId = await createTestUser(auth, { fields: { role: "admin, teacher" } });
 		const res = await app().request("/me", { headers: await sessionHeaders(auth, userId) });

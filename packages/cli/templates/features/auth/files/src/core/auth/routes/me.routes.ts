@@ -1,5 +1,5 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { currentPrincipal, requireAuth } from "#core/auth/middleware";
+import { currentPrincipal, requireAuth } from "@tatara/auth";
 import { errorResponses, jsonContent, success, successSchema } from "@tatara/http";
 import { createRouter, defineRoutes } from "#core/http/routes";
 

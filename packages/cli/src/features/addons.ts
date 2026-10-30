@@ -142,7 +142,7 @@ export const admin: Feature = {
 		{
 			file: "src/core/http/app.ts",
 			slot: "imports",
-			content: 'import { requireRole } from "#core/auth/middleware";',
+			content: 'import { requireRole } from "@tatara/auth";',
 		},
 		{
 			file: "src/core/http/app.ts",

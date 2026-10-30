@@ -29,8 +29,6 @@ exports[`renderApp > produces the expected file set for a full better-auth app 1
   "src/core/auth/db/organization.schema.ts",
   "src/core/auth/db/seed.ts",
   "src/core/auth/delivery.ts",
-  "src/core/auth/middleware.ts",
-  "src/core/auth/openapi.ts",
   "src/core/auth/principal.ts",
   "src/core/auth/routes/me.routes.ts",
   "src/core/auth/sms.ts",

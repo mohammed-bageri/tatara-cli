@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { issuer } from "#core/auth/keycloak";
+import { keycloak } from "#core/auth/keycloak";
 import { defineCommand } from "@tatara/core";
 import { env } from "#core/config/env";
 
@@ -13,7 +13,7 @@ export default defineCommand({
 	}),
 	async run({ user, password, client }) {
 		if (env.NODE_ENV === "production") throw new Error("keycloak:token is for development only");
-		const res = await fetch(`${issuer}/protocol/openid-connect/token`, {
+		const res = await fetch(`${keycloak.issuer}/protocol/openid-connect/token`, {
 			method: "POST",
 			headers: { "content-type": "application/x-www-form-urlencoded" },
 			body: new URLSearchParams({

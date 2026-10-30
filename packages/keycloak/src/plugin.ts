@@ -153,7 +153,7 @@ export interface KeycloakAuth {
 	api: { verifyKeycloakToken(input: { body: { token: string } }): Promise<Principal | null> };
 }
 
-/** A principal resolver for `attachPrincipal`: the bearer token, when Keycloak issued it. */
+/** A principal resolver for `principalMiddleware`: the bearer token, when Keycloak issued it. */
 export async function keycloakPrincipal(
 	auth: KeycloakAuth,
 	authorization: string | undefined,

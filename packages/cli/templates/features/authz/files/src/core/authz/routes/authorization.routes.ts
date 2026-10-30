@@ -1,5 +1,5 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { currentPrincipal, requireAuth } from "#core/auth/middleware";
+import { currentPrincipal, requireAuth } from "@tatara/auth";
 import { requirePermission } from "#core/authz/middleware";
 import { effectivePermissions, orgOf } from "#core/authz/resolver";
 import { listAudit } from "#core/authz/services/audit";
