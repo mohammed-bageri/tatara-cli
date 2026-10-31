@@ -1,6 +1,6 @@
 {
 	"name": "@tatara/db",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"description": "tatara database helpers: ids, seeds, per-driver admin and per-ORM migrations",
 	"type": "module",
 	"license": "MIT",
