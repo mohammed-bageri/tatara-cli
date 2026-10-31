@@ -118,6 +118,7 @@ export const authzPackage: Codemod = {
 			ctx.report.notes.push(
 				`Nothing in ${DIR} was changed: ${blockers.join("; ")}. Compare with a newly generated app and move onto @tatara/authz (createAuthz in ${DIR}/index.ts) by hand.`,
 			);
+			ctx.report.blocked.push("authz-package");
 			return;
 		}
 

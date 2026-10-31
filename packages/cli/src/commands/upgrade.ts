@@ -62,7 +62,10 @@ export async function upgrade(project: Project, opts: UpgradeOptions = {}): Prom
 		.filter((m) => compareVersions(m.version, from) > 0 && compareVersions(m.version, target) <= 0)
 		.sort((a, b) => compareVersions(a.version, b.version));
 
+	// the app is at most as new as the last codemod before the first blocked one
+	let reached = target;
 	for (const mod of due) {
+		const blockedBefore = ctx.report.blocked.length;
 		try {
 			await mod.run(ctx);
 		} catch (error) {
@@ -71,6 +74,10 @@ export async function upgrade(project: Project, opts: UpgradeOptions = {}): Prom
 			});
 		}
 		ctx.report.ran.push(mod.id);
+		if (ctx.report.blocked.length > blockedBefore && reached === target) {
+			const previous = due.slice(0, due.indexOf(mod)).at(-1);
+			reached = previous?.version ?? from;
+		}
 	}
 	if (opts.dryRun) return ctx.report;
 
@@ -81,8 +88,8 @@ export async function upgrade(project: Project, opts: UpgradeOptions = {}): Prom
 	const config = JSON.parse(await readFile(path, "utf8")) as ProjectConfig;
 	const next: ProjectConfig = {
 		...config,
-		version: target,
-		generated: { cli: target, files: await nextRecord(project, ctx.report) },
+		version: reached,
+		generated: { cli: reached, files: await nextRecord(project, ctx.report) },
 	};
 	if (JSON.stringify(next) !== JSON.stringify(config)) {
 		await writeFile(path, `${JSON.stringify(next, null, "\t")}\n`);
@@ -107,4 +114,10 @@ export function printUpgrade(report: UpgradeReport, from: string, to: string): v
 		);
 	}
 	for (const note of report.notes) console.log(`  ${note}`);
+	if (report.blocked.length > 0)
+		console.log(
+			pc.yellow(
+				`  ${report.blocked.join(", ")} did not run: make the changes above, then run tatara upgrade again`,
+			),
+		);
 }

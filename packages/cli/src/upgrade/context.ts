@@ -15,6 +15,8 @@ export interface UpgradeReport {
 	removed: string[];
 	kept: { path: string; diff: string }[];
 	notes: string[];
+	/** codemods that changed nothing because the app needs a hand edit first; they run again next time */
+	blocked: string[];
 }
 
 export interface UpgradeContext {
@@ -46,6 +48,7 @@ export function createContext(
 		removed: [],
 		kept: [],
 		notes: [],
+		blocked: [],
 	};
 	const abs = (path: string) => join(project.root, path);
 	let rendered: Promise<Map<string, string>> | undefined;

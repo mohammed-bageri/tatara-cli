@@ -136,6 +136,7 @@ describe("0.6.0 authz-package codemod", () => {
 		expect(report.removed).toEqual([]);
 		expect(exists(project, `${D}/index.ts`)).toBe(false);
 		expect(read(project, "src/modules/docs/routes/docs.routes.ts")).toBe(MODULE_ROUTE);
+		expect(report.blocked).toEqual(["authz-package"]);
 		expect(report.notes.join("\n")).toContain(`${D}/resolver.ts is customised`);
 	});
 

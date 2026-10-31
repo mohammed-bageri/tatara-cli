@@ -131,6 +131,55 @@ describe("upgrade", () => {
 		expect(read(project.root, "tatara.json")).toBe(after);
 	});
 
+	it("records the version before a blocked codemod, so the next upgrade runs it again", async () => {
+		const project = fixture();
+		const ran: string[] = [];
+		const mod = (version: string, blocked = false): Codemod => ({
+			version,
+			id: `mod-${version}`,
+			description: version,
+			run: async (ctx) => {
+				ran.push(version);
+				if (blocked) ctx.report.blocked.push(`mod-${version}`);
+			},
+		});
+		const report = await upgrade(project, {
+			...deps(project, "0.1.6"),
+			codemods: [mod("0.1.4"), mod("0.1.5", true), mod("0.1.6")],
+		});
+		expect(report.blocked).toEqual(["mod-0.1.5"]);
+		const config = JSON.parse(read(project.root, "tatara.json"));
+		expect(config.version).toBe("0.1.4");
+		expect(config.generated.cli).toBe("0.1.4");
+
+		ran.length = 0;
+		const again = loadProject(project.root);
+		await upgrade(again, {
+			...deps(again, "0.1.6"),
+			codemods: [mod("0.1.4"), mod("0.1.5"), mod("0.1.6")],
+		});
+		expect(ran).toEqual(["0.1.5", "0.1.6"]);
+		expect(JSON.parse(read(project.root, "tatara.json")).version).toBe("0.1.6");
+	});
+
+	it("keeps the app's version when the first due codemod is blocked", async () => {
+		const project = fixture();
+		await upgrade(project, {
+			...deps(project, "0.1.4"),
+			codemods: [
+				{
+					version: "0.1.4",
+					id: "blocked",
+					description: "",
+					run: async (ctx) => {
+						ctx.report.blocked.push("blocked");
+					},
+				},
+			],
+		});
+		expect(JSON.parse(read(project.root, "tatara.json")).version).toBe("0.1.3");
+	});
+
 	it("keeps the old version when a codemod fails", async () => {
 		const project = fixture();
 		const run = upgrade(project, {

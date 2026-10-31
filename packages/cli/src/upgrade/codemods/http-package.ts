@@ -86,6 +86,7 @@ export const httpPackage: Codemod = {
 			ctx.report.notes.push(
 				`Nothing in src/core/http was changed: ${blockers.join("; ")}. Move these onto @tatara/http (createApp, mountRoutes, serveOpenApi, handleErrors, startServer and its error classes) by hand, then delete the old files.`,
 			);
+			ctx.report.blocked.push("http-package");
 			return;
 		}
 

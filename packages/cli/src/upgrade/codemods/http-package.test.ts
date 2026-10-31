@@ -108,6 +108,7 @@ describe("0.3.0 http-package codemod", () => {
 		expect(read(project, "src/core/http/app.ts")).toBe(custom);
 		expect(report.removed).toEqual([]);
 		expect(read(project, "src/modules/notes/services/notes.ts")).toContain('"#core/http/errors"');
+		expect(report.blocked).toEqual(["http-package"]);
 		expect(report.notes.join("\n")).toContain("src/core/http/app.ts");
 	});
 
