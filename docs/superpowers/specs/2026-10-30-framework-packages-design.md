@@ -48,7 +48,7 @@ prisma/models/*.prisma      every table, including auth and authz (owned by the 
 tatara.json                 records features and installed @tatara/* packages
 ```
 
-*My call: config moves from `src/core/` to `src/config/`. Once `src/core` holds no framework code, the folder name would be misleading.*
+*Decided (step 7): the folder stays `src/core/`. It now holds only the app's wiring and config. Renaming it would rewrite every `#core/` import in every app for a cosmetic gain.*
 
 ## Packages
 
@@ -61,10 +61,10 @@ tatara.json                 records features and installed @tatara/* packages
 | `@tatara/auth` | principal type + `attachPrincipal`, `requireAuth`, `requireRole`, `mergeAuthOpenApi`, dev outbox, delivery helpers, test helpers (`asUser`, `authenticate`) | better-auth | apps with auth |
 | `@tatara/keycloak` | `keycloakTokens()` better-auth plugin, token verification, `keycloakToken()` test signer | better-auth, jose | apps with the keycloak method |
 | `@tatara/authz` | permissions catalog types, `definePermissions`, resolver, cache, middleware, services, store interface, built-in roles | hono | apps with authz |
-| `@tatara/authz-prisma`, `@tatara/authz-drizzle` | the authz store for each ORM, taking the app's db client | prisma / drizzle-orm | with authz |
+| ~~`@tatara/authz-prisma`, `@tatara/authz-drizzle`~~ | *Not built (step 5): the store stays in the app (`src/core/authz/db/store.ts`), typed against the app's own generated Prisma client or Drizzle schema, which a package can't import. `@tatara/authz` defines the `AuthzStore` interface.* | | |
 | `@tatara/storage` | `storage` (local + S3) | @aws-sdk/client-s3 | storage add-on |
 | `@tatara/email` | `sendEmail` (SMTP / console) | nodemailer | email add-on |
-| `@tatara/i18n` | `t()`, `detectLanguage`, base error strings (ar, en) | hono | i18n add-on |
+| `@tatara/i18n` | `createI18n({ dictionaries, defaultLanguage })` → `t()`, `detectLanguage`; the strings stay in the app's `src/locales` | hono | i18n add-on |
 | `@tatara/jobs` | queues, consumers, schedules, lock | bullmq, ioredis | jobs add-on |
 | `@tatara/cli`, `create-tatara` | as today, plus `upgrade` and `eject` | — | dev dependency |
 
@@ -135,7 +135,7 @@ Each step is one release plus MeemAin moving to it.
 | 4 | `@tatara/auth` + `@tatara/keycloak` | Depends on http |
 | 5 | `@tatara/authz` + store adapters | Largest; depends on auth |
 | 6 | `@tatara/storage`, `@tatara/email`, `@tatara/i18n`, `@tatara/jobs` | Independent add-ons |
-| 7 | `tatara eject`; generated apps no longer contain `src/core`; archive `tatara-framework` | The end state |
+| 7 | `tatara eject`; archive `tatara-framework` (`src/core` keeps its name, see above) | The end state |
 
 ## How each step is verified
 
