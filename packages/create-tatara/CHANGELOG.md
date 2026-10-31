@@ -1,5 +1,13 @@
 # create-tatara
 
+## 0.9.1
+
+### Patch Changes
+
+- 60c3459: Fix `tatara routes` to include better-auth endpoints. The command now fetches the OpenAPI spec from `/openapi.json` instead of calling `getOpenAPI31Document` directly, ensuring routes added via async extend callbacks are included. Also improves guard labeling for API-key security schemes.
+- Updated dependencies [60c3459]
+  - @tatara/cli@0.9.1
+
 ## 0.9.0
 
 ### Minor Changes
