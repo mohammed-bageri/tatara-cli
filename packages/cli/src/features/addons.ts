@@ -627,8 +627,15 @@ export const realtime: Feature = {
 		{
 			file: "src/apps/api/server.ts",
 			slot: "server-options",
-			content:
-				"// websockets share the api's port\nonServer: (server) => void realtime.attach(server as never, { channels }),",
+			content: [
+				"// websockets share the api's port; an api that can't serve them shouldn't run half-working",
+				"onServer: (server) => {",
+				"\trealtime.attach(server as never, { channels }).catch((err: unknown) => {",
+				'\t\tlogger.fatal({ err }, "realtime could not attach");',
+				"\t\tprocess.exit(1);",
+				"\t});",
+				"},",
+			].join("\n"),
 		},
 		{
 			// a socket acts in one org, like a request

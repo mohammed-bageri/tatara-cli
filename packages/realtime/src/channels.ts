@@ -65,4 +65,6 @@ export function channelName(pattern: string, params: Record<string, string>): st
 // every room starts with the org, so a channel can never reach another tenant
 export const userRoom = (who: SocketIdentity) => `o:${who.orgId}|user:${who.userId}`;
 export const orgRoom = (orgId: string) => `o:${orgId}|org`;
-export const channelRoom = (orgId: string, channel: string) => `o:${orgId}|ch:${channel}`;
+// the pattern is part of the room: a name two patterns both match stays two rooms
+export const channelRoom = (orgId: string, pattern: string, channel: string) =>
+	`o:${orgId}|ch:${pattern}|${channel}`;

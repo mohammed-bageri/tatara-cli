@@ -157,6 +157,84 @@ describe("realtime", () => {
 		expect(socket.connected).toBe(false);
 	});
 
+	it("holds the subscription cap under a burst of subscribes", async () => {
+		const { realtime, url } = await serve({ maxSubscriptionsPerSocket: 3 });
+		const socket = await socketFor(
+			url,
+			(await realtime.issueTicket({ userId: "u1", orgId: "o1" })).ticket,
+		);
+		const replies = await Promise.all(
+			Array.from({ length: 20 }, (_, i) => socket.emitWithAck("subscribe", `survey.s${i}`)),
+		);
+		expect(replies.filter((r: { ok: boolean }) => r.ok)).toHaveLength(3);
+	});
+
+	it("refuses a handshake from an origin the app doesn't allow", async () => {
+		const { realtime, url } = await serve({ allowOrigin: (o) => o === "https://app.example.com" });
+		const { ticket } = await realtime.issueTicket({ userId: "u1", orgId: "o1" });
+		const socket = connect(url, {
+			path: "/realtime",
+			transports: ["websocket"],
+			auth: { ticket },
+			reconnection: false,
+			extraHeaders: { origin: "https://evil.example" },
+		});
+		cleanups.push(() => socket.close());
+		await expect(
+			new Promise<void>((resolve, reject) => {
+				socket.on("connect", () => resolve());
+				socket.on("connect_error", reject);
+			}),
+		).rejects.toThrow();
+	});
+
+	it("closes a socket after its lifetime, so access is checked again with a new ticket", async () => {
+		const { realtime, url } = await serve({ maxSocketLifetimeMs: 200 });
+		const socket = await socketFor(
+			url,
+			(await realtime.issueTicket({ userId: "u1", orgId: "o1" })).ticket,
+		);
+		await new Promise((r) => socket.on("disconnect", r));
+	});
+
+	it("keeps overlapping channel patterns apart", async () => {
+		const left = defineChannel({
+			name: "a.{x}",
+			description: "",
+			events: { e: z.object({}) },
+			authorize: () => true,
+		});
+		const right = defineChannel({
+			name: "{y}.b",
+			description: "",
+			events: { e: z.object({}) },
+			authorize: () => false,
+		});
+		const realtime = createRealtime({
+			driver: "socketio",
+			adapter: { kind: "memory" },
+			tickets: memoryTickets(),
+			allowOrigin: () => true,
+			logger,
+		});
+		const server = createServer();
+		await realtime.attach(server, { channels: [left, right] });
+		await new Promise<void>((r) => server.listen(0, r));
+		cleanups.push(() => new Promise((r) => server.close(r)));
+		const url = `http://localhost:${(server.address() as AddressInfo).port}`;
+		const socket = await socketFor(
+			url,
+			(await realtime.issueTicket({ userId: "u1", orgId: "o1" })).ticket,
+		);
+		expect(await socket.emitWithAck("subscribe", "a.b")).toEqual({ ok: true });
+		const leaked: unknown[] = [];
+		socket.on("e", (p) => leaked.push(p));
+		// "a.b" also matches {y}.b, which this socket may not read
+		await realtime.publishTo(right, { orgId: "o1", params: { y: "a" }, event: "e", payload: {} });
+		await new Promise((r) => setTimeout(r, 200));
+		expect(leaked).toEqual([]);
+	});
+
 	it("matches channel patterns with safe params only", () => {
 		expect(matchChannel("survey.{surveyId}", "survey.s-1_A")).toEqual({ surveyId: "s-1_A" });
 		expect(matchChannel("survey.{surveyId}", "survey.s.1")).toBeNull();
@@ -208,6 +286,33 @@ describe.skipIf(!REDIS_URL)("realtime across processes (Redis)", { timeout: 20_0
 		await new Promise((r) => setTimeout(r, 300));
 		await worker.publishToUser("o1", "u1", "ping", { n: 1 });
 		expect(await both).toEqual([{ n: 1 }, { n: 1 }]);
+	});
+
+	it("rejects a publish when Redis is down, instead of crashing the process", async () => {
+		const worker = createRealtime({
+			driver: "socketio",
+			adapter: {
+				kind: "redis",
+				redis: () => {
+					const client = new Redis("redis://localhost:1", {
+						maxRetriesPerRequest: 1,
+						retryStrategy: () => null,
+					});
+					cleanups.push(() => client.disconnect());
+					return client;
+				},
+			},
+			tickets: memoryTickets(),
+			allowOrigin: () => true,
+			logger,
+		});
+		const unhandled: unknown[] = [];
+		const onUnhandled = (e: unknown) => unhandled.push(e);
+		process.on("unhandledRejection", onUnhandled);
+		cleanups.push(() => process.off("unhandledRejection", onUnhandled));
+		await expect(worker.publishToUser("o1", "u1", "x", {})).rejects.toThrow();
+		await new Promise((r) => setTimeout(r, 100));
+		expect(unhandled).toEqual([]);
 	});
 
 	it("has sent the event by the time publish resolves, so a short-lived process can exit", async () => {
