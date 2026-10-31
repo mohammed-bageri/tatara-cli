@@ -43,11 +43,14 @@ export const { notify, consumers } = createNotifier<NotificationsOf<typeof notif
 	// tatara:slot recipients
 	async contact(userId) {
 		const { adapter } = await auth.$context;
-		const user = await adapter.findOne<{ email?: string; phoneNumber?: string | null }>({
+		const user = await adapter.findOne<{ email?: string; phoneNumber?: string | null; language?: string | null }>({
 			model: "user",
 			where: [{ field: "id", value: userId }],
 		});
-		return user ? { email: user.email ?? null, phone: user.phoneNumber ?? null } : null;
+		// language: add it as a user field (better-auth additionalFields) to notify in each user's own
+		return user
+			? { email: user.email ?? null, phone: user.phoneNumber ?? null, language: user.language ?? null }
+			: null;
 	},
 	sms: sms(),
 	push: push(),

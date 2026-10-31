@@ -10,7 +10,20 @@ export interface DrizzleNotificationTables {
 	pushTokens: any;
 }
 
-const channels = (sent: string): Channel[] => (sent ? (sent.split(",") as Channel[]) : []);
+const COLUMN = {
+	"in-app": "sentInApp",
+	email: "sentEmail",
+	sms: "sentSms",
+	push: "sentPush",
+} as const satisfies Record<Channel, string>;
+
+/** Rows an update changed: node-postgres says rowCount, mysql2 affectedRows. */
+const changed = (result: unknown): number => {
+	const r = result as { rowCount?: number; affectedRows?: number } & {
+		0?: { affectedRows?: number };
+	};
+	return r.rowCount ?? r.affectedRows ?? r[0]?.affectedRows ?? 0;
+};
 
 /** The NotificationStore for Drizzle, over the app's database and its notification tables. */
 // biome-ignore lint/suspicious/noExplicitAny: a pg or mysql drizzle database
@@ -24,14 +37,9 @@ export function drizzleNotificationStore(
 	return {
 		async claim(row) {
 			const find = async () =>
-				(
-					await db
-						.select({ id: n.id, sent: n.sentChannels })
-						.from(n)
-						.where(eq(n.idempotencyKey, row.idempotencyKey))
-				)[0];
+				(await db.select({ id: n.id }).from(n).where(eq(n.idempotencyKey, row.idempotencyKey)))[0];
 			const found = await find();
-			if (found) return { id: found.id, sent: channels(found.sent) };
+			if (found) return { id: found.id };
 			try {
 				await db.insert(n).values({
 					id: row.id,
@@ -43,23 +51,28 @@ export function drizzleNotificationStore(
 					url: row.inApp?.url ?? null,
 					inApp: row.inApp !== null,
 					idempotencyKey: row.idempotencyKey,
-					sentChannels: "",
 				});
-				return { id: row.id, sent: [] };
+				return { id: row.id };
 			} catch (error) {
 				// a concurrent delivery of the same job inserted it first
 				const raced = await find();
-				if (raced) return { id: raced.id, sent: channels(raced.sent) };
+				if (raced) return { id: raced.id };
 				throw error;
 			}
 		},
-		async markSent(id, channel) {
-			const [row] = await db.select({ sent: n.sentChannels }).from(n).where(eq(n.id, id));
-			const sent = channels(row?.sent ?? "");
-			if (sent.includes(channel)) return;
+		// a conditional update on the channel's column: the database decides who took it
+		async claimChannel(id, channel) {
+			const column = COLUMN[channel];
+			const result = await db
+				.update(n)
+				.set({ [column]: true })
+				.where(and(eq(n.id, id), eq(n[column], false)));
+			return changed(result) === 1;
+		},
+		async releaseChannel(id, channel) {
 			await db
 				.update(n)
-				.set({ sentChannels: [...sent, channel].join(",") })
+				.set({ [COLUMN[channel]]: false })
 				.where(eq(n.id, id));
 		},
 		async list(orgId, userId, { limit, before, unreadOnly }) {
@@ -119,8 +132,15 @@ export function drizzleNotificationStore(
 		},
 		async addPushToken(userId, token, device) {
 			// a token moves to whoever signed in on the device last
-			await db.delete(p).where(eq(p.token, token));
-			await db.insert(p).values({ token, userId, device, lastSeenAt: new Date() });
+			const update = () =>
+				db.update(p).set({ userId, device, lastSeenAt: new Date() }).where(eq(p.token, token));
+			if (changed(await update()) === 1) return;
+			try {
+				await db.insert(p).values({ token, userId, device, lastSeenAt: new Date() });
+			} catch (error) {
+				// registered at the same moment by another request
+				if (changed(await update()) !== 1) throw error;
+			}
 		},
 		async removePushTokens(tokens) {
 			if (tokens.length) await db.delete(p).where(inArray(p.token, [...tokens]));

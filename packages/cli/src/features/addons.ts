@@ -516,7 +516,7 @@ export const notifications: Feature = {
 				"\tasync *permission(orgId, permission) {",
 				"\t\tfor await (const m of members(orgId)) {",
 				'\t\t\tconst who = { userId: m.userId, orgId, orgRole: m.role, roles: [], kind: "user" as const, claims: {} };',
-				"\t\t\tif (await resolveScope(who, permission as PermissionKey)) yield m.userId;",
+				"\t\t\tif (await checkPermission(who, permission as PermissionKey)) yield m.userId;",
 				"\t\t}",
 				"\t},",
 				"},",
@@ -527,7 +527,7 @@ export const notifications: Feature = {
 			slot: "imports",
 			when: ["auth-orgs", "authz"],
 			content:
-				'import { resolveScope } from "#core/authz/index";\nimport type { PermissionKey } from "#generated/permissions";',
+				'import { checkPermission } from "#core/authz/index";\nimport type { PermissionKey } from "#generated/permissions";',
 		},
 		{
 			file: "src/modules/notifications/services/notifier.ts",

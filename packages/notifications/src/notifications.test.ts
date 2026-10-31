@@ -135,6 +135,21 @@ describe("notify", () => {
 		expect(t.emails).toHaveLength(1);
 	});
 
+	it("sends a channel once when two deliveries of the same key run at once", async () => {
+		const t = setup();
+		const [, deliver] = t.notifier.consumers;
+		const job = {
+			orgId: "o1",
+			userId: "u1",
+			notification: "billing.invoice-paid",
+			data,
+			key: "k1",
+			channels: ["email" as const],
+		};
+		await Promise.all([deliver.handle(job, { logger }), deliver.handle(job, { logger })]);
+		expect(t.emails).toHaveLength(1);
+	});
+
 	it("retries only the channel that failed", async () => {
 		const t = setup({ failEmailTimes: 1 });
 		await t.notifier.notify({
@@ -239,6 +254,7 @@ describe("senders", () => {
 				return Response.json({ access_token: "at", expires_in: 3600 });
 			}
 			const token = JSON.parse(String(init.body)).message.token;
+			if (token === "down") throw new Error("ECONNRESET");
 			return token === "gone"
 				? new Response(
 						'{"error":{"status":"NOT_FOUND","details":[{"errorCode":"UNREGISTERED"}]}}',
@@ -253,7 +269,10 @@ describe("senders", () => {
 			fetch: fetch as never,
 		});
 		expect(await push.send(["ok-1", "gone"], { title: "Hi" })).toEqual({ invalidTokens: ["gone"] });
-		await push.send(["ok-1"], { title: "Again" });
+		// nothing reached a live device: the job retries, and still learns which token is gone
+		await expect(push.send(["gone", "down"], { title: "Hi" })).rejects.toMatchObject({
+			invalidTokens: ["gone"],
+		});
 		// the access token is reused while it's valid
 		expect(calls.filter((u) => u.includes("oauth2"))).toHaveLength(1);
 	});

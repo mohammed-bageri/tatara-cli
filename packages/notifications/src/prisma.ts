@@ -1,9 +1,14 @@
 import type { Channel } from "./define.ts";
 import type { NotificationRow, NotificationStore } from "./store.ts";
 
-interface NotificationRecord extends NotificationRow {
-	sentChannels: string;
-}
+const COLUMN = {
+	"in-app": "sentInApp",
+	email: "sentEmail",
+	sms: "sentSms",
+	push: "sentPush",
+} as const satisfies Record<Channel, string>;
+
+type NotificationRecord = NotificationRow;
 
 /** The two delegates the store uses, as Prisma generates them from the app's models. */
 export interface PrismaNotificationClient {
@@ -22,7 +27,6 @@ export interface PrismaNotificationClient {
 	};
 }
 
-const channels = (sent: string): Channel[] => (sent ? (sent.split(",") as Channel[]) : []);
 const KNOWN = ["P2002"];
 
 /** The NotificationStore for Prisma (models Notification and PushToken in prisma/models/notifications.prisma). */
@@ -34,7 +38,7 @@ export function prismaNotificationStore(client: unknown): NotificationStore {
 			const find = () =>
 				db.notification.findUnique({ where: { idempotencyKey: row.idempotencyKey } });
 			const found = await find();
-			if (found) return { id: found.id, sent: channels(found.sentChannels) };
+			if (found) return { id: found.id };
 			try {
 				await db.notification.create({
 					data: {
@@ -47,26 +51,28 @@ export function prismaNotificationStore(client: unknown): NotificationStore {
 						url: row.inApp?.url ?? null,
 						inApp: row.inApp !== null,
 						idempotencyKey: row.idempotencyKey,
-						sentChannels: "",
 					},
 				});
-				return { id: row.id, sent: [] };
+				return { id: row.id };
 			} catch (error) {
 				// a concurrent delivery of the same job inserted it first
 				if (!KNOWN.includes((error as { code?: string }).code ?? "")) throw error;
 				const raced = await find();
 				if (!raced) throw error;
-				return { id: raced.id, sent: channels(raced.sentChannels) };
+				return { id: raced.id };
 			}
 		},
-		async markSent(id, channel) {
-			const row = await db.notification.findUnique({ where: { id } });
-			const sent = channels(row?.sentChannels ?? "");
-			if (sent.includes(channel)) return;
-			await db.notification.update({
-				where: { id },
-				data: { sentChannels: [...sent, channel].join(",") },
+		// a conditional update on the channel's column: the database decides who took it
+		async claimChannel(id, channel) {
+			const column = COLUMN[channel];
+			const { count } = await db.notification.updateMany({
+				where: { id, [column]: false },
+				data: { [column]: true },
 			});
+			return count === 1;
+		},
+		async releaseChannel(id, channel) {
+			await db.notification.updateMany({ where: { id }, data: { [COLUMN[channel]]: false } });
 		},
 		async list(orgId, userId, { limit, before, unreadOnly }) {
 			const rows = await db.notification.findMany({
@@ -85,7 +91,7 @@ export function prismaNotificationStore(client: unknown): NotificationStore {
 				orderBy: [{ createdAt: "desc" }, { id: "desc" }],
 				take: limit,
 			});
-			return rows.map(({ sentChannels: _, ...r }) => ({
+			return rows.map((r) => ({
 				id: r.id,
 				orgId: r.orgId,
 				userId: r.userId,

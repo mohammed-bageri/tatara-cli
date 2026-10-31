@@ -25,5 +25,5 @@ export {
 	type PushSender,
 	type SmsSender,
 } from "./notifier.ts";
-export { consolePush, consoleSms, fcmPush, twilioSms } from "./senders.ts";
+export { consolePush, consoleSms, fcmPush, PushFailedError, twilioSms } from "./senders.ts";
 export type { NewNotification, NotificationRow, NotificationStore } from "./store.ts";

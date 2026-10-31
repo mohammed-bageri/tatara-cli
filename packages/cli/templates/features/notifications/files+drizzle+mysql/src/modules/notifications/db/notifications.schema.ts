@@ -15,7 +15,11 @@ export const notifications = mysqlTable(
 		url: text(),
 		inApp: boolean().notNull().default(true),
 		idempotencyKey: varchar({ length: 255 }).notNull().unique(),
-		sentChannels: varchar({ length: 64 }).notNull().default(""),
+		// each channel is taken once, by a conditional update on its column
+		sentInApp: boolean().notNull().default(false),
+		sentEmail: boolean().notNull().default(false),
+		sentSms: boolean().notNull().default(false),
+		sentPush: boolean().notNull().default(false),
 		readAt: ts(),
 		createdAt: ts().notNull().defaultNow(),
 	},

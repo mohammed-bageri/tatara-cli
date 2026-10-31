@@ -10,7 +10,10 @@ model Notification {
   url            String?   @db.Text
   inApp          Boolean   @default(true) @map("in_app")
   idempotencyKey String    @unique @map("idempotency_key") @db.VarChar(255)
-  sentChannels   String    @default("") @map("sent_channels") @db.VarChar(64)
+  sentInApp      Boolean   @default(false) @map("sent_in_app")
+  sentEmail      Boolean   @default(false) @map("sent_email")
+  sentSms        Boolean   @default(false) @map("sent_sms")
+  sentPush       Boolean   @default(false) @map("sent_push")
   readAt         DateTime? @map("read_at")
   createdAt      DateTime  @default(now()) @map("created_at")
 

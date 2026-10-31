@@ -161,10 +161,11 @@ export function createNotifier<Names extends object = Record<string, unknown>>(
 			for await (const userId of users(job.orgId, job.to)) {
 				if (seen.has(userId)) continue;
 				seen.add(userId);
-				// the key makes a retried fan-out queue the same deliveries, which then dedupe
+				// the key makes a retried fan-out queue the same deliveries, which then dedupe; keys are
+				// the caller's, so the org keeps one org's key from shadowing another's
 				await options.enqueue(
 					DELIVER_TOPIC,
-					{ ...job, to: undefined, userId, key: `${job.key}:${userId}` },
+					{ ...job, to: undefined, userId, key: `${job.orgId}:${job.key}:${userId}` },
 					{ orgId: job.orgId },
 				);
 			}
@@ -193,20 +194,16 @@ export function createNotifier<Names extends object = Record<string, unknown>>(
 				idempotencyKey: job.key,
 			});
 			for (const channel of channels) {
-				if (record.sent.includes(channel)) continue;
-				const sent = await send(
-					channel,
-					def,
-					data,
-					language,
-					contact,
-					job,
-					record.id,
-					inApp,
-					ctx.logger,
-				);
-				// a channel without a sender or an address is done too: retrying won't change that
-				if (sent !== "retry") await options.store.markSent(record.id, channel);
+				// taken before sending: two deliveries of one key can't both send it. A crash after
+				// this sends nothing for the channel: at most once, never twice
+				if (!(await options.store.claimChannel(record.id, channel))) continue;
+				try {
+					await send(channel, def, data, language, contact, job, record.id, inApp, ctx.logger);
+				} catch (error) {
+					// hand it back so the job's retry sends it
+					await options.store.releaseChannel(record.id, channel);
+					throw error;
+				}
 			}
 		},
 	};
@@ -222,7 +219,7 @@ export function createNotifier<Names extends object = Record<string, unknown>>(
 		id: string,
 		inApp: InAppContent | null,
 		logger: CoreLogger,
-	): Promise<"sent" | "skipped" | "retry"> {
+	): Promise<"sent" | "skipped"> {
 		const skip = (why: string) => {
 			logger.debug({ channel, userId: job.userId, why }, "notification channel skipped");
 			return "skipped" as const;
@@ -255,10 +252,17 @@ export function createNotifier<Names extends object = Record<string, unknown>>(
 				if (!options.push) return skip("no push sender");
 				const tokens = await options.store.pushTokens(job.userId);
 				if (tokens.length === 0) return skip("no devices");
-				const result = await options.push.send(
-					tokens,
-					renderChannel(def, "push", data, language) as PushContent,
-				);
+				let result: { invalidTokens: string[] };
+				try {
+					result = await options.push.send(
+						tokens,
+						renderChannel(def, "push", data, language) as PushContent,
+					);
+				} catch (error) {
+					const gone = (error as { invalidTokens?: string[] }).invalidTokens;
+					if (gone?.length) await options.store.removePushTokens(gone);
+					throw error;
+				}
 				if (result.invalidTokens.length) await options.store.removePushTokens(result.invalidTokens);
 				return "sent";
 			}

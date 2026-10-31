@@ -13,7 +13,7 @@ export function memoryNotificationStore(): NotificationStore & {
 		rows,
 		async claim(row) {
 			const found = rows.find((r) => r.key === row.idempotencyKey);
-			if (found) return { id: found.id, sent: [...found.sent] };
+			if (found) return { id: found.id };
 			rows.push({
 				id: row.id,
 				orgId: row.orgId,
@@ -28,11 +28,17 @@ export function memoryNotificationStore(): NotificationStore & {
 				inApp: row.inApp !== null,
 				sent: [],
 			});
-			return { id: row.id, sent: [] };
+			return { id: row.id };
 		},
-		async markSent(id, channel) {
+		async claimChannel(id, channel) {
 			const row = rows.find((r) => r.id === id);
-			if (row && !row.sent.includes(channel)) row.sent.push(channel);
+			if (!row || row.sent.includes(channel)) return false;
+			row.sent.push(channel);
+			return true;
+		},
+		async releaseChannel(id, channel) {
+			const row = rows.find((r) => r.id === id);
+			if (row) row.sent = row.sent.filter((c) => c !== channel);
 		},
 		async list(orgId, userId, { limit, before, unreadOnly }) {
 			return mine(orgId, userId)

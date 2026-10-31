@@ -48,6 +48,15 @@ export function consolePush(logger: CoreLogger): PushSender {
 	};
 }
 
+/** No device got the push; `invalidTokens` are the ones FCM said are gone. */
+export class PushFailedError extends Error {
+	readonly invalidTokens: string[];
+	constructor(message: string, invalidTokens: string[]) {
+		super(message);
+		this.invalidTokens = invalidTokens;
+	}
+}
+
 const base64url = (data: string | Buffer) => Buffer.from(data).toString("base64url");
 
 /**
@@ -97,35 +106,39 @@ export function fcmPush(options: {
 			const bearer = await accessToken();
 			const invalidTokens: string[] = [];
 			const failures: string[] = [];
+			let delivered = 0;
 			await Promise.all(
 				tokens.map(async (device) => {
-					const res = await http(
-						`https://fcm.googleapis.com/v1/projects/${encodeURIComponent(options.projectId)}/messages:send`,
-						{
-							method: "POST",
-							headers: { authorization: `Bearer ${bearer}`, "content-type": "application/json" },
-							body: JSON.stringify({
-								message: {
-									token: device,
-									notification: { title: content.title, body: content.body },
-									...(content.data ? { data: content.data } : {}),
-								},
-							}),
-						},
-					);
-					if (res.ok) return;
-					const text = await res.text();
-					if (res.status === 404 || text.includes("UNREGISTERED")) invalidTokens.push(device);
-					else failures.push(`${res.status}: ${text}`);
+					try {
+						const res = await http(
+							`https://fcm.googleapis.com/v1/projects/${encodeURIComponent(options.projectId)}/messages:send`,
+							{
+								method: "POST",
+								headers: { authorization: `Bearer ${bearer}`, "content-type": "application/json" },
+								body: JSON.stringify({
+									message: {
+										token: device,
+										notification: { title: content.title, body: content.body },
+										...(content.data ? { data: content.data } : {}),
+									},
+								}),
+							},
+						);
+						if (res.ok) {
+							delivered++;
+							return;
+						}
+						const text = await res.text();
+						if (res.status === 404 || text.includes("UNREGISTERED")) invalidTokens.push(device);
+						else failures.push(`${res.status}: ${text}`);
+					} catch (error) {
+						failures.push(String(error));
+					}
 				}),
 			);
-			// every device failed for a reason other than being gone: let the job retry
-			if (
-				failures.length > 0 &&
-				failures.length + invalidTokens.length === tokens.length &&
-				invalidTokens.length === 0
-			)
-				throw new Error(`FCM failed: ${failures[0]}`);
+			// nothing reached a live device: let the job retry (a retry re-pushes nothing it already got)
+			if (delivered === 0 && failures.length > 0)
+				throw new PushFailedError(`FCM failed: ${failures[0]}`, invalidTokens);
 			return { invalidTokens };
 		},
 	};

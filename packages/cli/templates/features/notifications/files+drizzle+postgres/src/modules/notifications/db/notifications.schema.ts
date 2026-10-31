@@ -1,6 +1,7 @@
 import { boolean, index, pgTable, text, timestamp, varchar } from "drizzle-orm/pg-core";
 
-const ts = () => timestamp({ withTimezone: true, mode: "date" });
+// milliseconds, like the Date a cursor carries: finer and rows would fall between pages
+const ts = () => timestamp({ withTimezone: true, mode: "date", precision: 3 });
 
 /** One row per user per notification; `in_app` false rows only record what was sent. */
 export const notifications = pgTable(
@@ -15,7 +16,11 @@ export const notifications = pgTable(
 		url: text(),
 		inApp: boolean().notNull().default(true),
 		idempotencyKey: varchar({ length: 255 }).notNull().unique(),
-		sentChannels: varchar({ length: 64 }).notNull().default(""),
+		// each channel is taken once, by a conditional update on its column
+		sentInApp: boolean().notNull().default(false),
+		sentEmail: boolean().notNull().default(false),
+		sentSms: boolean().notNull().default(false),
+		sentPush: boolean().notNull().default(false),
 		readAt: ts(),
 		createdAt: ts().notNull().defaultNow(),
 	},

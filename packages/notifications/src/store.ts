@@ -24,12 +24,12 @@ export interface NewNotification {
 
 /** What the notifications table and push tokens need; Drizzle and Prisma stores ship with the package. */
 export interface NotificationStore {
-	/**
-	 * The record for this delivery, created on first call. `sent` lists the channels already out,
-	 * so a retried delivery sends only what's left.
-	 */
-	claim(row: NewNotification): Promise<{ id: string; sent: Channel[] }>;
-	markSent(id: string, channel: Channel): Promise<void>;
+	/** The record for this delivery, created on first call and found on every later one. */
+	claim(row: NewNotification): Promise<{ id: string }>;
+	/** Takes `channel` for sending, atomically: true for exactly one caller until it's released. */
+	claimChannel(id: string, channel: Channel): Promise<boolean>;
+	/** Gives a channel back after its send failed, so a retry can take it. */
+	releaseChannel(id: string, channel: Channel): Promise<void>;
 	/** the user's inbox, newest first; `before` is the last row of the previous page */
 	list(
 		orgId: string,

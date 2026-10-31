@@ -2,6 +2,7 @@ import type { InlineDriver } from "@tatara/jobs";
 import { beforeEach, describe, expect, it } from "vitest";
 import { jobs } from "#core/jobs/index";
 import { notify } from "#modules/notifications/services/notifier";
+import { notificationStore } from "#modules/notifications/services/store";
 import { api } from "#tests/helpers/api";
 import { authenticate } from "#tests/helpers/auth";
 import { resetDatabase } from "#tests/helpers/db";
@@ -46,6 +47,23 @@ describe("notifications", () => {
 		expect(read.body.data.updated).toBe(1);
 		expect((await count(me.headers)).body.data.count).toBe(0);
 		expect((await count(other.headers)).body.data.count).toBe(1);
+	});
+
+	it("lets one delivery take a channel at a time, in the database", async () => {
+		const { id } = await notificationStore.claim({
+			id: crypto.randomUUID(),
+			orgId: "default",
+			userId: "u1",
+			name: "example.welcome",
+			inApp: null,
+			idempotencyKey: crypto.randomUUID(),
+		});
+		const takes = await Promise.all([1, 2, 3].map(() => notificationStore.claimChannel(id, "email")));
+		expect(takes.filter(Boolean)).toHaveLength(1);
+		expect(await notificationStore.claimChannel(id, "sms")).toBe(true);
+		await notificationStore.releaseChannel(id, "email");
+		expect(await notificationStore.claimChannel(id, "email")).toBe(true);
+		expect(await notificationStore.claimChannel(id, "sms")).toBe(false);
 	});
 
 	it("needs a signed-in user", async () => {
