@@ -4,6 +4,7 @@ import { libraryConfig } from "../../tsdown.base.ts";
 export default defineConfig(
 	libraryConfig({
 		index: "src/index.ts",
+		commands: "src/commands.ts",
 		testing: "src/testing.ts",
 		prisma: "src/prisma.ts",
 		drizzle: "src/drizzle.ts",

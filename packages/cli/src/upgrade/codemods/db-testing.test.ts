@@ -60,6 +60,7 @@ const run = (project: Project) =>
 		codemods: [dbTesting],
 		baseline: recorded(project),
 		runSync: async () => {},
+		runInstall: async () => {},
 		formatFile: async () => {},
 	});
 const read = (project: Project, path: string) => readFileSync(join(project.root, path), "utf8");

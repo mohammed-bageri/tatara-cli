@@ -48,6 +48,7 @@ it("removes unchanged framework tests and leaves the app's own tests alone", asy
 			},
 		},
 		runSync: async () => {},
+		runInstall: async () => {},
 		formatFile: async () => {},
 	});
 	expect(report.removed).toEqual(["src/core/authz/tests/authz.test.ts"]);

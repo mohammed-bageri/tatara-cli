@@ -64,6 +64,11 @@ function app(files: Record<string, string> = {}, deps: Record<string, string> = 
 					'import { UnauthorizedError } from "@tatara/http";\nexport const x = UnauthorizedError;\n',
 				"testing.ts": "export const t = 1;\n",
 			},
+			{
+				tatara: {
+					commands: [{ import: "@tatara/auth/commands", factory: "authCommands", args: {} }],
+				},
+			},
 		),
 		"src/core/http/app.ts":
 			'import { createApp } from "@tatara/http";\nimport { requireAuth } from "@tatara/auth";\n',
@@ -96,6 +101,10 @@ describe("tatara eject", () => {
 		expect(pkg.imports["#ejected/*"]).toBe("./src/ejected/*.ts");
 		expect(pkg.imports["#core/*"]).toBe("./src/core/*.ts");
 		expect(json(project, "tatara.json").ejected).toEqual({ auth: "0.1.0" });
+		// sync reads the commands and seeds an ejected package contributes from here
+		expect(json(project, "src/ejected/auth/tatara-package.json")).toEqual({
+			commands: [{ import: "@tatara/auth/commands", factory: "authCommands", args: {} }],
+		});
 	});
 
 	it("refuses while another installed package depends on it, and names them", async () => {

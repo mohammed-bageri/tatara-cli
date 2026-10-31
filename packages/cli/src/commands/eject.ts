@@ -31,6 +31,8 @@ interface PackageJson {
 	peerDependencies?: Record<string, string>;
 	peerDependenciesMeta?: Record<string, { optional?: boolean }>;
 	imports?: Record<string, string>;
+	/** commands and seeds the package contributes (read by `tatara sync`) */
+	tatara?: object;
 }
 
 const short = (name: string) => name.replace(/^@tatara\//, "");
@@ -101,6 +103,11 @@ export async function eject(
 			await mkdir(dirname(join(project.root, to)), { recursive: true });
 			await cp(join(source, file), join(project.root, to));
 			report.copied.push(to);
+		}
+		// `tatara sync` keeps wiring the package's commands and seeds from the copy
+		if (manifest.tatara) {
+			const to = `src/ejected/${dep}/tatara-package.json`;
+			await writeFile(join(project.root, to), `${JSON.stringify(manifest.tatara, null, "\t")}\n`);
 		}
 	}
 

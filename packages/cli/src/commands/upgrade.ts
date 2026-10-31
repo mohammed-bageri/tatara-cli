@@ -3,12 +3,13 @@ import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import pc from "picocolors";
 import { x } from "tinyexec";
-import { cliVersion as installedCliVersion } from "../paths.ts";
+import { cliVersion as installedCliVersion, templateVersions, versionOf } from "../paths.ts";
+import { pmCommands } from "../pm.ts";
 import type { Project, ProjectConfig } from "../project/config.ts";
 import { hashTrackedFiles } from "../project/hashes.ts";
 import { type Baseline, compareVersions, createBaseline } from "../upgrade/baseline.ts";
 import { CODEMODS, type Codemod } from "../upgrade/codemods.ts";
-import { createContext, type UpgradeReport } from "../upgrade/context.ts";
+import { createContext, type UpgradeContext, type UpgradeReport } from "../upgrade/context.ts";
 import { sync } from "./sync.ts";
 
 export interface UpgradeOptions {
@@ -17,8 +18,39 @@ export interface UpgradeOptions {
 	cliVersion?: string;
 	baseline?: Baseline;
 	runSync?: (project: Project) => Promise<unknown>;
+	/** installs after package.json changed (default: the app's package manager) */
+	runInstall?: (project: Project) => Promise<void>;
 	/** formats a file in the app (default: the app's own Biome, when installed) */
 	formatFile?: (file: string, project: Project) => Promise<void>;
+}
+
+async function pmInstall(project: Project): Promise<void> {
+	const [cmd = "pnpm", ...args] = pmCommands(project.config.packageManager).install;
+	const res = await x(cmd, args, {
+		throwOnError: false,
+		nodeOptions: { cwd: project.root, stdio: "inherit" },
+	});
+	if (res.exitCode !== 0)
+		throw new Error(`${cmd} ${args.join(" ")} failed; fix it, then run tatara upgrade again`);
+}
+
+/** Sets every @tatara/* library the app depends on to the range this CLI ships with. */
+async function bumpPackages(ctx: UpgradeContext): Promise<void> {
+	const pkg = JSON.parse(await ctx.read("package.json")) as {
+		dependencies?: Record<string, string>;
+		devDependencies?: Record<string, string>;
+	};
+	const known = templateVersions();
+	for (const dev of [false, true]) {
+		for (const [name, range] of Object.entries(
+			(dev ? pkg.devDependencies : pkg.dependencies) ?? {},
+		)) {
+			// the app picks the CLI it upgrades with
+			if (!name.startsWith("@tatara/") || name === "@tatara/cli" || !(name in known)) continue;
+			const next = versionOf(name);
+			if (next !== range) await ctx.addDependency(name, next, { dev });
+		}
+	}
 }
 
 export async function biomeFormat(file: string, project: Project): Promise<void> {
@@ -79,10 +111,13 @@ export async function upgrade(project: Project, opts: UpgradeOptions = {}): Prom
 			reached = previous?.version ?? from;
 		}
 	}
+	await bumpPackages(ctx);
 	if (opts.dryRun) return ctx.report;
 
 	const format = opts.formatFile ?? biomeFormat;
 	for (const path of ctx.report.written) await format(path, project);
+	// new or bumped packages must be installed before sync and verify can import them
+	if (ctx.report.written.includes("package.json")) await (opts.runInstall ?? pmInstall)(project);
 	await (opts.runSync ?? sync)(project);
 	const path = join(project.root, "tatara.json");
 	const config = JSON.parse(await readFile(path, "utf8")) as ProjectConfig;

@@ -65,6 +65,7 @@ const run = (project: Project) =>
 		codemods: [httpPackage],
 		baseline: recorded(project),
 		runSync: async () => {},
+		runInstall: async () => {},
 		formatFile: async () => {},
 	});
 const read = (project: Project, path: string) => readFileSync(join(project.root, path), "utf8");
@@ -143,6 +144,7 @@ describe("0.3.0 http-package codemod", () => {
 				codemods: [httpPackage],
 				baseline: recorded(again),
 				runSync: async () => {},
+				runInstall: async () => {},
 				formatFile: async () => {},
 			},
 		);

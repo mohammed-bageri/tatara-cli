@@ -86,6 +86,7 @@ const run = (project: Project) =>
 		codemods: [authzPackage],
 		baseline: recorded(project),
 		runSync: async () => {},
+		runInstall: async () => {},
 		formatFile: async () => {},
 	});
 const read = (project: Project, path: string) => readFileSync(join(project.root, path), "utf8");
@@ -95,9 +96,16 @@ describe("0.6.0 authz-package codemod", () => {
 	it("adds @tatara/authz, removes the copies and writes the app's createAuthz", async () => {
 		const project = app();
 		const report = await run(project);
-		// 13 copies, plus the framework test this CLI no longer puts in apps
-		expect(report.removed).toHaveLength(14);
-		expect(report.removed).toContain(`${D}/tests/authz.test.ts`);
+		// 13 copies, plus what this CLI no longer puts in apps: the framework test, and the
+		// commands and seed that come from @tatara/authz now
+		expect(report.removed).toHaveLength(17);
+		for (const gone of [
+			"tests/authz.test.ts",
+			"db/seed.ts",
+			"commands/grant-role.ts",
+			"commands/sync-permissions.ts",
+		])
+			expect(report.removed).toContain(`${D}/${gone}`);
 		expect(exists(project, `${D}/resolver.ts`)).toBe(false);
 		expect(read(project, `${D}/index.ts`)).toContain("createAuthz<PermissionKey>(");
 		expect(read(project, `${D}/routes/authorization.routes.ts`)).toContain(
@@ -173,6 +181,7 @@ describe("0.6.0 authz-package codemod", () => {
 				codemods: [authzPackage],
 				baseline: recorded(again),
 				runSync: async () => {},
+				runInstall: async () => {},
 				formatFile: async () => {},
 			},
 		);

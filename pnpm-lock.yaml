@@ -181,6 +181,9 @@ importers:
       pino:
         specifier: ^10.4.0
         version: 10.4.0
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
 
   packages/http:
     devDependencies:
@@ -271,6 +274,9 @@ importers:
       '@aws-sdk/s3-request-presigner':
         specifier: ^3.1152.0
         version: 3.1160.0
+      '@tatara/core':
+        specifier: workspace:^
+        version: link:../core
 
   packages/testing:
     devDependencies:

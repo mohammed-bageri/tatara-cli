@@ -9,6 +9,10 @@
 		".": {
 			"types": "./dist/index.d.mts",
 			"import": "./dist/index.mjs"
+		},
+		"./commands": {
+			"types": "./dist/commands.d.mts",
+			"import": "./dist/commands.mjs"
 		}
 	},
 	"files": [
@@ -49,5 +53,16 @@
 	"homepage": "https://github.com/mohammed-bageri/tatara-cli#readme",
 	"bugs": {
 		"url": "https://github.com/mohammed-bageri/tatara-cli/issues"
+	},
+	"tatara": {
+		"commands": [
+			{
+				"import": "@tatara/jobs/commands",
+				"factory": "jobsCommands",
+				"args": {
+					"enqueue": "#core/jobs/index"
+				}
+			}
+		]
 	}
 }

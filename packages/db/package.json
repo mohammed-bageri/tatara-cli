@@ -33,6 +33,10 @@
 		"./drizzle-mysql": {
 			"types": "./dist/drizzle-mysql.d.mts",
 			"import": "./dist/drizzle-mysql.mjs"
+		},
+		"./commands": {
+			"types": "./dist/commands.d.mts",
+			"import": "./dist/commands.mjs"
 		}
 	},
 	"files": [
@@ -52,7 +56,8 @@
 		"mariadb": "^3.4.5",
 		"mysql2": "^3.24.6",
 		"drizzle-orm": "^0.45.4",
-		"@tatara/core": "^0.1.1"
+		"@tatara/core": "^0.1.1",
+		"zod": "^4.6.7"
 	},
 	"devDependencies": {
 		"pg": "^8.23.1",
@@ -89,5 +94,19 @@
 		"drizzle-orm": {
 			"optional": true
 		}
+	},
+	"tatara": {
+		"commands": [
+			{
+				"import": "@tatara/db/commands",
+				"factory": "dbCommands",
+				"args": {
+					"env": "#core/config/env",
+					"migrateDatabase": "#core/db/migrate",
+					"dropAllTables": "#core/db/admin",
+					"seeds": "#generated/seeds"
+				}
+			}
+		]
 	}
 }

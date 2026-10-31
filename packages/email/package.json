@@ -9,6 +9,10 @@
 		".": {
 			"types": "./dist/index.d.mts",
 			"import": "./dist/index.mjs"
+		},
+		"./commands": {
+			"types": "./dist/commands.d.mts",
+			"import": "./dist/commands.mjs"
 		}
 	},
 	"files": [
@@ -25,13 +29,15 @@
 	},
 	"peerDependencies": {
 		"nodemailer": "^10.1.1",
-		"@tatara/core": "^0.1.0"
+		"@tatara/core": "^0.1.0",
+		"zod": "^4.6.7"
 	},
 	"devDependencies": {
 		"nodemailer": "^10.1.1",
 		"@tatara/core": "workspace:^",
 		"pino": "^10.4.0",
-		"@types/nodemailer": "^8.0.2"
+		"@types/nodemailer": "^8.0.2",
+		"zod": "^4.6.7"
 	},
 	"publishConfig": {
 		"access": "public"
@@ -44,5 +50,16 @@
 	"homepage": "https://github.com/mohammed-bageri/tatara-cli#readme",
 	"bugs": {
 		"url": "https://github.com/mohammed-bageri/tatara-cli/issues"
+	},
+	"tatara": {
+		"commands": [
+			{
+				"import": "@tatara/email/commands",
+				"factory": "emailCommands",
+				"args": {
+					"sendEmail": "#core/email/send"
+				}
+			}
+		]
 	}
 }

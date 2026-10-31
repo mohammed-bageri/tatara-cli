@@ -109,6 +109,7 @@ async function run(project: Project) {
 		codemods: [corePackage],
 		baseline: recorded(project),
 		runSync: async () => {},
+		runInstall: async () => {},
 		formatFile: async () => {},
 	});
 }
@@ -185,6 +186,7 @@ describe("0.2.0 core-package codemod", () => {
 			codemods: [{ ...corePackage, version: "0.2.0" }],
 			baseline: recorded(again),
 			runSync: async () => {},
+			runInstall: async () => {},
 			formatFile: async () => {},
 		});
 		// re-running the codemod itself (as after a failed sync) changes nothing either
@@ -195,6 +197,7 @@ describe("0.2.0 core-package codemod", () => {
 				codemods: [corePackage],
 				baseline: recorded(again),
 				runSync: async () => {},
+				runInstall: async () => {},
 				formatFile: async () => {},
 			},
 		);

@@ -75,6 +75,7 @@ const run = (project: Project) =>
 		codemods: [addonPackages],
 		baseline: recorded(project),
 		runSync: async () => {},
+		runInstall: async () => {},
 		formatFile: async () => {},
 	});
 const read = (project: Project, path: string) => readFileSync(join(project.root, path), "utf8");
@@ -85,9 +86,15 @@ describe("0.7.0 addon-packages codemod", () => {
 	it("moves every add-on the app has onto its package", async () => {
 		const project = app();
 		const report = await run(project);
-		// 8 copies, plus the storage framework test this CLI no longer puts in apps
-		expect(report.removed).toHaveLength(9);
-		expect(report.removed).toContain("src/core/storage/tests/storage.test.ts");
+		// 8 copies, plus what this CLI no longer puts in apps: the storage framework test and
+		// the commands that come from the packages now
+		expect(report.removed).toHaveLength(11);
+		for (const gone of [
+			"src/core/storage/tests/storage.test.ts",
+			"src/core/storage/commands/check.ts",
+			"src/core/jobs/commands/enqueue.ts",
+		])
+			expect(report.removed).toContain(gone);
 		for (const name of ["storage", "email", "i18n", "jobs"])
 			expect(deps(project)[`@tatara/${name}`]).toMatch(/^\^0\./);
 		expect(read(project, "src/core/storage/index.ts")).toContain("s3Storage({ client: s3");
@@ -162,6 +169,7 @@ describe("0.7.0 addon-packages codemod", () => {
 				codemods: [addonPackages],
 				baseline: recorded(again),
 				runSync: async () => {},
+				runInstall: async () => {},
 				formatFile: async () => {},
 			},
 		);

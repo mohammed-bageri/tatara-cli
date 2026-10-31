@@ -48,6 +48,82 @@ export const ${options.exportName}: ${options.typeName}[] = [${names.join(", ")}
 `;
 }
 
+/** A command or seed factory a @tatara/* package declares in its package.json "tatara" field. */
+interface Contribution {
+	import: string;
+	factory: string;
+	/** argument name → the app module that exports it */
+	args: Record<string, string>;
+}
+
+type ContributionKind = "commands" | "seeds";
+
+/** What the app's installed (or ejected) @tatara/* packages contribute, by package name. */
+async function contributions(project: Project, kind: ContributionKind): Promise<Contribution[]> {
+	const pkg = JSON.parse(await readFile(join(project.root, "package.json"), "utf8")) as {
+		dependencies?: Record<string, string>;
+		devDependencies?: Record<string, string>;
+	};
+	const ejected = ejectedPackages(project.config);
+	const names = [
+		...Object.keys({ ...pkg.dependencies, ...pkg.devDependencies })
+			.filter((n) => n.startsWith("@tatara/"))
+			.map((n) => n.slice("@tatara/".length)),
+		...ejected,
+	];
+	const out: Contribution[] = [];
+	for (const name of [...new Set(names)].sort()) {
+		// eject keeps the manifest next to the copy
+		const file = ejected.includes(name)
+			? join(project.root, "src/ejected", name, "tatara-package.json")
+			: join(project.root, "node_modules/@tatara", name, "package.json");
+		if (!existsSync(file)) continue;
+		const json = JSON.parse(await readFile(file, "utf8")) as {
+			tatara?: Partial<Record<ContributionKind, Contribution[]>>;
+		} & Partial<Record<ContributionKind, Contribution[]>>;
+		out.push(...((ejected.includes(name) ? json[kind] : json.tatara?.[kind]) ?? []));
+	}
+	return out;
+}
+
+/**
+ * Like listModule, plus the packages' factories: `own` are the app's files, and an own entry wins
+ * over a package's entry with the same name.
+ */
+function listWithPackages(
+	files: string[],
+	from: Contribution[],
+	options: { prefix: string; typeImport: string; typeName: string; exportName: string },
+): string {
+	if (from.length === 0) return listModule(files, options);
+	const imports = new Map<string, string>();
+	const bind = (name: string, spec: string) => {
+		const existing = imports.get(name);
+		if (existing && existing !== spec)
+			throw new Error(`tatara packages need "${name}" from both ${existing} and ${spec}`);
+		imports.set(name, spec);
+	};
+	for (const c of from) {
+		bind(c.factory, c.import);
+		for (const [arg, spec] of Object.entries(c.args)) bind(arg, spec);
+	}
+	const named = [...imports].map(([name, spec]) => `import { ${name} } from "${spec}";`);
+	const own = files.map((f) => `import ${identifier(f, options.prefix)} from "${specifier(f)}";`);
+	const calls = from.map((c) => `...${c.factory}({ ${Object.keys(c.args).join(", ")} })`);
+	const t = options.typeName;
+	return `${HEADER}${options.typeImport}
+${[...named, ...own].join("\n")}
+
+const own: ${t}[] = [${files.map((f) => identifier(f, options.prefix)).join(", ")}];
+// from the installed @tatara/* packages; the app's own entry of the same name wins
+const fromPackages: ${t}[] = [${calls.join(", ")}];
+export const ${options.exportName}: ${t}[] = [
+	...own,
+	...fromPackages.filter((c) => !own.some((o) => o.name === c.name)),
+];
+`;
+}
+
 export interface SyncResult {
 	written: string[];
 }
@@ -92,7 +168,7 @@ export async function sync(project: Project = loadProject()): Promise<SyncResult
 	);
 	await write(
 		join(out, "commands.ts"),
-		listModule(commands, {
+		listWithPackages(commands, await contributions(project, "commands"), {
 			prefix: "command",
 			typeImport: 'import type { CommandDefinition } from "@tatara/core";',
 			typeName: "CommandDefinition",
@@ -158,7 +234,7 @@ export type PermissionKey =
 		);
 		await write(
 			join(out, "seeds.ts"),
-			listModule(seeds, {
+			listWithPackages(seeds, await contributions(project, "seeds"), {
 				prefix: "seed",
 				typeImport: 'import type { SeedDefinition } from "@tatara/db";',
 				typeName: "SeedDefinition",

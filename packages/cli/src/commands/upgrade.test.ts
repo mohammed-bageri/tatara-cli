@@ -45,6 +45,7 @@ const deps = (project: ReturnType<typeof fixture>, cli = "0.1.5") => ({
 	cliVersion: cli,
 	baseline: recordedOnly(project),
 	runSync: async () => {},
+	runInstall: async () => {},
 });
 
 describe("upgrade", () => {
@@ -234,6 +235,42 @@ describe("upgrade", () => {
 			],
 		});
 		expect(report.removed).toEqual(["src/core/http/errors.ts"]);
+	});
+
+	it("bumps @tatara/* dependencies to this CLI's versions, then installs before sync", async () => {
+		const project = fixture({
+			"package.json": JSON.stringify({
+				name: "app",
+				dependencies: { "@tatara/core": "^0.0.1", hono: "1.0.0" },
+				devDependencies: { "@tatara/testing": "^0.0.1", "@tatara/cli": "^0.0.1" },
+			}),
+		});
+		const order: string[] = [];
+		await upgrade(project, {
+			...deps(project),
+			codemods: [],
+			runInstall: async () => void order.push("install"),
+			runSync: async () => void order.push("sync"),
+		});
+		const pkg = JSON.parse(read(project.root, "package.json"));
+		expect(pkg.dependencies["@tatara/core"]).toMatch(/^\^0\.[1-9]/);
+		expect(pkg.devDependencies["@tatara/testing"]).toMatch(/^\^0\.[1-9]/);
+		expect(pkg.dependencies.hono).toBe("1.0.0");
+		// the app installs the CLI it upgrades with; upgrade leaves that pin alone
+		expect(pkg.devDependencies["@tatara/cli"]).toBe("^0.0.1");
+		expect(order).toEqual(["install", "sync"]);
+	});
+
+	it("skips install when package.json did not change", async () => {
+		const project = fixture();
+		const order: string[] = [];
+		await upgrade(project, {
+			...deps(project),
+			codemods: [],
+			runInstall: async () => void order.push("install"),
+			runSync: async () => void order.push("sync"),
+		});
+		expect(order).toEqual(["sync"]);
 	});
 
 	it("keeps the old version when a codemod fails", async () => {
