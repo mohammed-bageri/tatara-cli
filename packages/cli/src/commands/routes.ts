@@ -12,6 +12,40 @@ export interface RouteInfo {
 	access: string;
 }
 
+type SecurityScheme = Record<string, { type?: string; scheme?: string }>;
+
+/** Computes the access label for a route based on its security requirements. */
+export function parseAccessLabel(
+	security: Array<Record<string, string[]>> | undefined,
+	_securitySchemes: SecurityScheme,
+): string {
+	if (!security || security.length === 0) return "public";
+
+	const labels: string[] = [];
+	for (const requirement of security) {
+		const schemes = Object.keys(requirement);
+		if (schemes.length === 0) continue;
+
+		const schemeName = schemes[0] ?? "";
+		const roles = requirement[schemeName] ?? [];
+
+		// For bearer auth with specific roles, show the roles
+		if (schemeName === "bearerAuth" && roles.length > 0) {
+			labels.push(roles.join(", "));
+		}
+		// For bearer auth without roles, show "authenticated"
+		else if (schemeName === "bearerAuth") {
+			labels.push("authenticated");
+		}
+		// For other schemes (API keys, etc.), show the scheme name
+		else {
+			labels.push(schemeName);
+		}
+	}
+
+	return labels.length > 1 ? labels.join(" OR ") : (labels[0] ?? "authenticated");
+}
+
 /** Reads every app's OpenAPI document in-process and lists its routes. */
 export async function listRoutes(project: Project): Promise<RouteInfo[]> {
 	await sync(project);
@@ -23,12 +57,42 @@ export async function listRoutes(project: Project): Promise<RouteInfo[]> {
 const out = [];
 for (const [name, spec] of ${JSON.stringify(apps)}) {
 	const { app } = await import(spec);
-	const doc = app.getOpenAPI31Document({ openapi: "3.1.0", info: { title: name, version: "1" } });
+	// Fetch from /openapi.json endpoint to get the document with all extensions applied
+	const res = await app.request("/openapi.json");
+	const doc = await res.json();
+	const securitySchemes = doc.components?.securitySchemes ?? {};
+
 	for (const [path, item] of Object.entries(doc.paths ?? {})) {
 		for (const [method, op] of Object.entries(item)) {
 			const security = op.security ?? [];
-			const roles = security.flatMap((s) => Object.values(s).flat());
-			const access = security.length === 0 ? "public" : roles.length ? roles.join(", ") : "authenticated";
+
+			// Parse access label based on security schemes
+			let access = "public";
+			if (security.length > 0) {
+				const labels = [];
+				for (const requirement of security) {
+					const schemes = Object.keys(requirement);
+					if (schemes.length === 0) continue;
+
+					const schemeName = schemes[0];
+					const roles = requirement[schemeName] ?? [];
+
+					// For bearer auth with specific roles, show the roles
+					if (schemeName === "bearerAuth" && roles.length > 0) {
+						labels.push(roles.join(", "));
+					}
+					// For bearer auth without roles, show "authenticated"
+					else if (schemeName === "bearerAuth") {
+						labels.push("authenticated");
+					}
+					// For other schemes (API keys, etc.), show the scheme name
+					else {
+						labels.push(schemeName);
+					}
+				}
+				access = labels.length > 1 ? labels.join(" OR ") : (labels[0] ?? "authenticated");
+			}
+
 			out.push({ app: name, method: method.toUpperCase(), path, summary: op.summary ?? "", access });
 		}
 	}
