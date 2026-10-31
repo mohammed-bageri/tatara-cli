@@ -400,7 +400,7 @@ export const authOrgs: Feature = {
 			file: "src/core/auth/auth.ts",
 			slot: "imports",
 			when: ["authz"],
-			content: 'import { removeMemberAccess } from "#core/authz/services/members";',
+			content: 'import { removeMemberAccess } from "#core/authz/index";',
 		},
 		{
 			file: "tests/helpers/auth.ts",

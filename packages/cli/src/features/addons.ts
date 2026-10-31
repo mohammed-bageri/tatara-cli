@@ -4,9 +4,9 @@ const AUTHZ_AGENTS = `## Permissions (authz)
 
 - Permissions are \`resource:action\` (optionally scoped \`own | team | org\`, where a wider scope
   satisfies a narrower one). Each module declares its resources and the grants built-in roles get
-  in \`permissions/<name>.permissions.ts\` (\`definePermissions\`); \`tatara sync\` merges them into a
+  in \`permissions/<name>.permissions.ts\` (\`definePermissions\` from \`@tatara/authz\`); \`tatara sync\` merges them into a
   typed catalog.
-- Guard routes with \`middleware: [requirePermission("project:read")]\` from \`#core/authz/middleware\`
+- Guard routes with \`middleware: [requirePermission("project:read")]\` from \`#core/authz/index\`
   and declare \`security: [{ bearerAuth: ["project:read"] }]\`. For scoped actions, call
   \`resolveScope(principal, "doc:read")\` in the service and filter rows by the returned scope.
 - Effective permissions = role grants (assigned roles + built-in roles whose key matches an
@@ -21,6 +21,7 @@ export const authz: Feature = {
 	id: "authz",
 	kind: "addon",
 	label: "Permission system",
+	dependencies: ["@tatara/authz"],
 	slots: [
 		{
 			file: "tests/helpers/auth.ts",

@@ -135,13 +135,12 @@ export async function sync(project: Project = loadProject()): Promise<SyncResult
 		const names = permissions.map((f) => identifier(f, "permissions"));
 		await writeIfChanged(
 			join(out, "permissions.ts"),
-			`${HEADER}import { mergeCatalogs, type PermissionKeysOf } from "#core/authz/catalog";
-import corePermissions from "#core/authz/permissions";
+			`${HEADER}import { authzPermissions, mergeCatalogs, type PermissionKeysOf } from "@tatara/authz";
 ${imports.join("\n")}${imports.length ? "\n" : ""}
-export const catalog = mergeCatalogs(corePermissions${names.map((n) => `, ${n}`).join("")});
+export const catalog = mergeCatalogs(authzPermissions${names.map((n) => `, ${n}`).join("")});
 
 export type PermissionKey =
-	| PermissionKeysOf<typeof corePermissions>${names.map((n) => `\n\t| PermissionKeysOf<typeof ${n}>`).join("")};
+	| PermissionKeysOf<typeof authzPermissions>${names.map((n) => `\n\t| PermissionKeysOf<typeof ${n}>`).join("")};
 `,
 			written,
 		);

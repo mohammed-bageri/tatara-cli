@@ -61,7 +61,7 @@ function guardSlots(project: Project, n: Names): SlotFill[] {
 	const fills: SlotFill[] = [];
 	const add = (slot: string, content: string) => fills.push({ slot, content, order: fills.length });
 	if (project.has("authz")) {
-		add("imports", 'import { requirePermission } from "#core/authz/middleware";');
+		add("imports", 'import { requirePermission } from "#core/authz/index";');
 		for (const [route, action] of Object.entries(ACTIONS)) {
 			add(
 				`guard-${route}`,

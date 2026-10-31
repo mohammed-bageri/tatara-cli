@@ -1,10 +1,10 @@
-import { syncSystemRoles } from "#core/authz/services/sync";
+import { authz } from "#core/authz/index";
 import { defineSeed } from "@tatara/db";
 
 export default defineSeed({
 	name: "authz:system-roles",
 	order: -10,
 	async run({ logger }) {
-		logger.info(await syncSystemRoles(), "built-in roles in sync");
+		logger.info(await authz.syncSystemRoles(), "built-in roles in sync");
 	},
 });

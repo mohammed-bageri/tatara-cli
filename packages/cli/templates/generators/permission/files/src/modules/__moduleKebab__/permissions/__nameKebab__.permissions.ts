@@ -1,4 +1,4 @@
-import { definePermissions } from "#core/authz/catalog";
+import { definePermissions } from "@tatara/authz";
 
 export default definePermissions({
 	resources: {

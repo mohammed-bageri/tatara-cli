@@ -1,6 +1,6 @@
-import type { OverlayEffect, Scope } from "#core/authz/constants";
-import { SYSTEM_ORG_ID } from "#core/authz/constants";
-import type { AuthzStore, OverlayRow, PermissionGrant, RoleRow } from "#core/authz/types";
+import type { OverlayEffect, Scope } from "@tatara/authz";
+import { SYSTEM_ORG_ID } from "@tatara/authz";
+import type { AuthzStore, OverlayRow, PermissionGrant, RoleRow } from "@tatara/authz";
 import { db } from "#core/db/client";
 import { newId } from "@tatara/db";
 

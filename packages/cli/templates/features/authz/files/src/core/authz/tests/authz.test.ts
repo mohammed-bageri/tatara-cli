@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { allows } from "#core/authz/resolver";
-import type { EffectivePermissions } from "#core/authz/types";
+import { allows, type EffectivePermissions } from "@tatara/authz";
 import { api } from "#tests/helpers/api";
 import { asUser, authenticate } from "#tests/helpers/auth";
 import { applyTestAccess } from "#tests/helpers/authz";

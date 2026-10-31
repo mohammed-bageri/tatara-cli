@@ -2,6 +2,7 @@ import { glob } from "tinyglobby";
 import { versionOf } from "../../paths.ts";
 import type { Codemod } from "../codemods.ts";
 import type { UpgradeContext } from "../context.ts";
+import { importsOf } from "./imports.ts";
 
 const AUTH = "@tatara/auth";
 const KEYCLOAK = "@tatara/keycloak";
@@ -91,31 +92,12 @@ async function read(ctx: UpgradeContext, path: string): Promise<string | undefin
 	return ctx.read(path).catch(() => undefined);
 }
 
-const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
 /** True when `text` imports `entry` (or one of its gone names). */
 function usesExport(text: string, entry: Export): boolean {
-	const from = new RegExp(
-		`import\\s+(?:type\\s+)?([^;]*?)\\s+from\\s+["']${escapeRegExp(entry.specifier)}["']`,
-		"g",
-	);
+	const names = importsOf(text, entry.specifier);
+	if (!names) return false;
 	const gone = entry.names;
-	for (const match of text.matchAll(from)) {
-		if (!gone) return true;
-		const clause = match[1] ?? "";
-		const braces = clause.match(/\{([^}]*)\}/);
-		// a namespace or default import could reach any name
-		if (!braces) return true;
-		const imported = (braces[1] ?? "").split(",").map((part) =>
-			part
-				.trim()
-				.replace(/^type\s+/, "")
-				.split(/\s+as\s+/)[0]
-				?.trim(),
-		);
-		if (imported.some((name) => name && gone.includes(name))) return true;
-	}
-	return false;
+	return !gone || names.some((name) => name === "*" || gone.includes(name));
 }
 
 /** Why the group can't move, or [] when it can. */

@@ -5,5 +5,3 @@ export const SYSTEM_ROLES = [
 ] as const;
 
 export type SystemRoleKey = (typeof SYSTEM_ROLES)[number]["key"];
-
-export const SYSTEM_ROLE_KEYS: ReadonlySet<string> = new Set(SYSTEM_ROLES.map((r) => r.key));
