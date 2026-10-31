@@ -3,17 +3,17 @@ import { parseAccessLabel } from "./routes.ts";
 
 describe("parseAccessLabel", () => {
 	it("returns 'public' for routes with no security", () => {
-		expect(parseAccessLabel([], {})).toBe("public");
-		expect(parseAccessLabel(undefined, {})).toBe("public");
+		expect(parseAccessLabel([], {}, [])).toBe("public");
+		expect(parseAccessLabel(undefined, {}, [])).toBe("public");
 	});
 
 	it("returns role names for bearer auth with roles", () => {
-		expect(parseAccessLabel([{ bearerAuth: ["admin"] }], {})).toBe("admin");
-		expect(parseAccessLabel([{ bearerAuth: ["admin", "editor"] }], {})).toBe("admin, editor");
+		expect(parseAccessLabel([{ bearerAuth: ["admin"] }], {}, [])).toBe("admin");
+		expect(parseAccessLabel([{ bearerAuth: ["admin", "editor"] }], {}, [])).toBe("admin, editor");
 	});
 
 	it("returns 'authenticated' for bearer auth without specific roles", () => {
-		expect(parseAccessLabel([{ bearerAuth: [] }], {})).toBe("authenticated");
+		expect(parseAccessLabel([{ bearerAuth: [] }], {}, [])).toBe("authenticated");
 	});
 
 	it("returns the security scheme name for non-bearer auth", () => {
@@ -22,8 +22,8 @@ describe("parseAccessLabel", () => {
 			cookieAuth: { type: "apiKey", in: "cookie", name: "session" },
 		};
 
-		expect(parseAccessLabel([{ gameKey: [] }], schemes)).toBe("gameKey");
-		expect(parseAccessLabel([{ cookieAuth: [] }], schemes)).toBe("cookieAuth");
+		expect(parseAccessLabel([{ gameKey: [] }], schemes, [])).toBe("gameKey");
+		expect(parseAccessLabel([{ cookieAuth: [] }], schemes, [])).toBe("cookieAuth");
 	});
 
 	it("handles multiple security schemes", () => {
@@ -32,8 +32,19 @@ describe("parseAccessLabel", () => {
 			gameKey: { type: "apiKey", in: "header", name: "X-Game-Key" },
 		};
 
-		expect(parseAccessLabel([{ bearerAuth: [] }, { gameKey: [] }], schemes)).toBe(
+		expect(parseAccessLabel([{ bearerAuth: [] }, { gameKey: [] }], schemes, [])).toBe(
 			"authenticated OR gameKey",
 		);
+	});
+
+	it("returns 'better-auth' for routes tagged Auth", () => {
+		expect(parseAccessLabel([{ bearerAuth: [] }], {}, ["Auth"])).toBe("better-auth");
+		expect(parseAccessLabel([], {}, ["Auth"])).toBe("better-auth");
+		expect(parseAccessLabel([{ bearerAuth: ["admin"] }], {}, ["Auth"])).toBe("better-auth");
+	});
+
+	it("does not override with better-auth for routes with other tags", () => {
+		expect(parseAccessLabel([{ bearerAuth: [] }], {}, ["Users"])).toBe("authenticated");
+		expect(parseAccessLabel([{ bearerAuth: ["admin"] }], {}, ["Admin", "Users"])).toBe("admin");
 	});
 });

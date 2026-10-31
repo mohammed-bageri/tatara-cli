@@ -18,7 +18,11 @@ type SecurityScheme = Record<string, { type?: string; scheme?: string }>;
 export function parseAccessLabel(
 	security: Array<Record<string, string[]>> | undefined,
 	_securitySchemes: SecurityScheme,
+	tags: string[] = [],
 ): string {
+	// Routes tagged "Auth" are from better-auth's merged document
+	if (tags.includes("Auth")) return "better-auth";
+
 	if (!security || security.length === 0) return "public";
 
 	const labels: string[] = [];
@@ -64,11 +68,16 @@ for (const [name, spec] of ${JSON.stringify(apps)}) {
 
 	for (const [path, item] of Object.entries(doc.paths ?? {})) {
 		for (const [method, op] of Object.entries(item)) {
+			const tags = op.tags ?? [];
 			const security = op.security ?? [];
 
-			// Parse access label based on security schemes
+			// Parse access label based on security schemes and tags
 			let access = "public";
-			if (security.length > 0) {
+
+			// Routes tagged "Auth" are from better-auth's merged document
+			if (tags.includes("Auth")) {
+				access = "better-auth";
+			} else if (security.length > 0) {
 				const labels = [];
 				for (const requirement of security) {
 					const schemes = Object.keys(requirement);
@@ -93,7 +102,8 @@ for (const [name, spec] of ${JSON.stringify(apps)}) {
 				access = labels.length > 1 ? labels.join(" OR ") : (labels[0] ?? "authenticated");
 			}
 
-			out.push({ app: name, method: method.toUpperCase(), path, summary: op.summary ?? "", access });
+			const summary = op.summary || op.description || "";
+			out.push({ app: name, method: method.toUpperCase(), path, summary, access });
 		}
 	}
 }
