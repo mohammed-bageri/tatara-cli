@@ -34,6 +34,8 @@ export function authzCommands({ authz }: { authz: AnyAuthz }): CommandDefinition
 			name: "authz:sync-permissions",
 			description:
 				"Create/update built-in roles so their grants match the code (run on every deploy)",
+			phase: "deploy",
+			order: 10,
 			async run(_args, { logger }) {
 				const result = await authz.syncSystemRoles();
 				logger.info(result, "built-in roles in sync");

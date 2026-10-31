@@ -18,6 +18,9 @@ export function dbCommands(options: DbCommandsOptions): CommandDefinition[] {
 		defineCommand({
 			name: "db:migrate",
 			description: "Apply pending database migrations",
+			// first thing on every deploy
+			phase: "deploy",
+			order: 0,
 			async run(_args, { logger }) {
 				await migrateDatabase(env.DATABASE_URL);
 				logger.info("migrations applied");

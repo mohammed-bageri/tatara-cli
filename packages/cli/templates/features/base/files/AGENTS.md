@@ -68,6 +68,17 @@ __PM_EXEC__ tatara upgrade               # after bumping @tatara/cli: run its co
   `.env.example`. Never read `process.env` elsewhere.
 - Log with `c.get("logger")` in requests and `logger` from `#core/logging/logger` elsewhere.
   No `console.*` outside commands and tests.
+- Secrets and codes come from `@tatara/core`: `createEncryption(keys)` for secrets at rest (AES-GCM,
+  rotatable keys), `randomToken()`, `numericCode()`, `randomCode()`, `hashToken()`, `safeEqual()`.
+  Never `Math.random()` for anything a user could guess.
+- User text: `text({ max })` and `url()` from `@tatara/core` in validators clean and check it (control,
+  invisible and bidi characters, whitespace; only http(s) links). Escape when you render HTML.
+
+## Deploying
+
+- Every deploy runs `node dist/apps/cli/index.mjs deploy`: commands with `phase: "deploy"` (migrations
+  first, then the rest by `order`), and each `phase: "once"` command the first time a database sees
+  it (recorded in a ledger). Commands without a phase only run when asked for.
 
 ## Tests
 

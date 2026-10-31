@@ -5,6 +5,7 @@ import { authzPackage } from "./codemods/authz-package.ts";
 import { authzStores } from "./codemods/authz-stores.ts";
 import { corePackage } from "./codemods/core-package.ts";
 import { dbTesting } from "./codemods/db-testing.ts";
+import { deployLedger } from "./codemods/deploy-ledger.ts";
 import { emailV2 } from "./codemods/email-v2.ts";
 import { frameworkTests } from "./codemods/framework-tests.ts";
 import { httpLimits } from "./codemods/http-limits.ts";
@@ -40,4 +41,5 @@ export const CODEMODS: readonly Codemod[] = [
 	httpLimits,
 	jobsDrivers,
 	emailV2,
+	deployLedger,
 ];

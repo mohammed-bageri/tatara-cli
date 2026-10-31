@@ -217,6 +217,16 @@ async function smoke(s: Scenario, dir: string, logDir: string): Promise<string[]
 		const spec = await json(await fetch(`${base}/openapi.json`));
 		expect(Object.keys((spec.paths as object) ?? {}).length > 0, "OpenAPI has no paths");
 		expect((await fetch(`${base}/api/greetings?name=E2E`)).ok, "greetings failed");
+		if (s.database !== "none") {
+			// what a deploy runs: migrations, then the deploy commands; the second run finds nothing to do once
+			for (let i = 0; i < 2; i++) {
+				const deploy = await run("node", ["--env-file=.env", "dist/apps/cli/index.mjs", "deploy"], {
+					cwd: dir,
+				});
+				expect(deploy.code === 0, `deploy: ${deploy.out.slice(-400)}`);
+			}
+			notes.push("deploy");
+		}
 
 		const user = await tokenFor(s, base, dir, "user");
 		// apps with organizations act in one: set once the admin has created it

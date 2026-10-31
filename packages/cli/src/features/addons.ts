@@ -12,8 +12,8 @@ const AUTHZ_AGENTS = `## Permissions (authz)
 - Effective permissions = role grants (assigned roles + built-in roles whose key matches an
   identity-provider role) + grant overlays − deny overlays. Deny always wins.
 - Custom roles and grant overlays can never grant \`role\`, \`member\` or \`audit_log\`.
-- Built-in roles live in \`src/core/authz/system-roles.ts\`. Run \`__PM_EXEC__ tatara run authz:sync-permissions\`
-  on every deploy (it is idempotent); \`db:seed\` runs it locally.
+- Built-in roles live in \`src/core/authz/system-roles.ts\`. \`authz:sync-permissions\` brings the database
+  in line with them; \`deploy\` runs it every deploy, \`db:seed\` locally.
 - In tests: \`asUser({ permissions: ["project:read"] })\` or \`asUser({ systemRoles: ["admin"] })\`.
 `;
 
