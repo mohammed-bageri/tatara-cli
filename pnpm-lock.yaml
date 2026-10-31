@@ -57,6 +57,39 @@ importers:
         specifier: ^4.6.7
         version: 4.6.7
 
+  packages/authz:
+    devDependencies:
+      '@hono/node-server':
+        specifier: ^2.1.5
+        version: 2.1.5(hono@4.13.14)
+      '@hono/zod-openapi':
+        specifier: ^1.6.3
+        version: 1.6.3(hono@4.13.14)(zod@4.6.7)
+      '@scalar/hono-api-reference':
+        specifier: ^0.12.12
+        version: 0.12.16(hono@4.13.14)
+      '@tatara/auth':
+        specifier: workspace:^
+        version: link:../auth
+      '@tatara/core':
+        specifier: workspace:^
+        version: link:../core
+      '@tatara/http':
+        specifier: workspace:^
+        version: link:../http
+      better-auth:
+        specifier: ^1.7.8
+        version: 1.7.14(drizzle-orm@0.45.4(@types/pg@8.23.1)(kysely@0.29.7)(mysql2@3.24.6(@types/node@24.19.2))(pg@8.23.1))(mysql2@3.24.6(@types/node@24.19.2))(pg@8.23.1)(vitest@5.0.4(@types/node@24.19.2)(vite@8.3.4(@types/node@24.19.2)(yaml@2.9.1)))
+      hono:
+        specifier: ^4.13.13
+        version: 4.13.14
+      pino:
+        specifier: ^10.4.0
+        version: 10.4.0
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+
   packages/cli:
     dependencies:
       '@clack/prompts':

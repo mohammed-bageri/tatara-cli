@@ -1,0 +1,59 @@
+{
+	"name": "@tatara/authz",
+	"version": "0.1.0",
+	"description": "tatara authz: permission catalog, resolver, guards, role and member services, and routes",
+	"type": "module",
+	"license": "MIT",
+	"sideEffects": false,
+	"exports": {
+		".": {
+			"types": "./dist/index.d.mts",
+			"import": "./dist/index.mjs"
+		},
+		"./testing": {
+			"types": "./dist/testing.d.mts",
+			"import": "./dist/testing.mjs"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"engines": {
+		"node": ">=24"
+	},
+	"scripts": {
+		"build": "tsdown",
+		"typecheck": "tsc --noEmit"
+	},
+	"peerDependencies": {
+		"hono": "^4.13.13",
+		"@hono/zod-openapi": "^1.6.3",
+		"@tatara/http": "^0.1.0",
+		"@tatara/auth": "^0.1.0",
+		"@tatara/core": "^0.1.0"
+	},
+	"devDependencies": {
+		"hono": "^4.13.13",
+		"@hono/zod-openapi": "^1.6.3",
+		"@tatara/http": "workspace:^",
+		"@tatara/auth": "workspace:^",
+		"@tatara/core": "workspace:^",
+		"@hono/node-server": "^2.1.5",
+		"@scalar/hono-api-reference": "^0.12.12",
+		"better-auth": "^1.7.8",
+		"pino": "^10.4.0",
+		"zod": "^4.6.7"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/mohammed-bageri/tatara-cli.git",
+		"directory": "packages/authz"
+	},
+	"homepage": "https://github.com/mohammed-bageri/tatara-cli#readme",
+	"bugs": {
+		"url": "https://github.com/mohammed-bageri/tatara-cli/issues"
+	}
+}
