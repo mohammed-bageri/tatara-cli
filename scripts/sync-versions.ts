@@ -11,7 +11,9 @@ const FILE = join(ROOT, "packages/cli/templates/versions.json");
 const versions = JSON.parse(readFileSync(FILE, "utf8")) as Record<string, string>;
 for (const dir of readdirSync(join(ROOT, "packages"), { withFileTypes: true })) {
 	if (!dir.isDirectory()) continue;
-	const pkg = JSON.parse(readFileSync(join(ROOT, "packages", dir.name, "package.json"), "utf8")) as {
+	const pkg = JSON.parse(
+		readFileSync(join(ROOT, "packages", dir.name, "package.json"), "utf8"),
+	) as {
 		name: string;
 		version: string;
 	};
