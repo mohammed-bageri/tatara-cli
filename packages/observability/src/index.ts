@@ -54,8 +54,11 @@ export function startTelemetry(options: TelemetryOptions): NodeSDK | null {
 						getNodeAutoInstrumentations({
 							// noisy, and file reads are rarely what's slow
 							"@opentelemetry/instrumentation-fs": { enabled: false },
-							// httpTracing makes the server span, with the route; one per request is enough
-							"@opentelemetry/instrumentation-http": { ignoreIncomingRequestHook: () => true },
+							// httpTracing makes the server span, with the route. Not patching the server at all:
+							// an *ignored* request would suppress tracing for everything inside it
+							"@opentelemetry/instrumentation-http": {
+								disableIncomingRequestInstrumentation: true,
+							},
 						}),
 					],
 	});
