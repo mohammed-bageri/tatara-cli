@@ -121,6 +121,8 @@ describe("0.7.0 addon-packages codemod", () => {
 		const report = await run(project);
 		expect(read(project, "src/core/i18n/index.ts")).toContain("// + fr");
 		expect(report.notes.join("\n")).toContain("i18n was not moved");
+		// recorded below 0.7.0, so the next upgrade tries i18n again once it's moved by hand
+		expect(report.blocked).toEqual(["addon-packages"]);
 		expect(read(project, "src/core/email/send.ts")).toContain("createMailer(");
 	});
 

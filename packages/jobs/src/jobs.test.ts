@@ -112,11 +112,17 @@ describe("startCron", () => {
 		const redis = fakeRedis();
 		if (held) redis.set = async () => null;
 		let runs = 0;
+		let connected = 0;
 		const jobs = startCron({
 			schedules: [{ name: `s-${expected}`, cron: "* * * * * *", run: async () => void runs++ }],
-			redis: redis as never,
+			redis: () => {
+				connected++;
+				return redis as never;
+			},
 			logger,
 		});
+		// no connection until a schedule is due
+		expect(connected).toBe(0);
 		await vi.advanceTimersByTimeAsync(1000);
 		for (const job of jobs) job.stop();
 		vi.useRealTimers();

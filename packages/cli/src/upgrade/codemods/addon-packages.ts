@@ -63,6 +63,9 @@ export const addonPackages: Codemod = {
 				ctx.report.notes.push(
 					`${addon} was not moved onto @tatara/${addon}: ${blockers.join("; ")}. Compare with a newly generated app and move it by hand.`,
 				);
+				// the next upgrade tries again; groups that moved are left as they are
+				if (!ctx.report.blocked.includes("addon-packages"))
+					ctx.report.blocked.push("addon-packages");
 				continue;
 			}
 			const present: string[] = [];

@@ -37,7 +37,8 @@ export function startWorker(options: WorkerOptions): Worker {
 
 export interface CronOptions {
 	schedules: ScheduleDefinition[];
-	redis: Pick<Redis, "set" | "eval">;
+	/** called on the first due tick, so starting cron opens no connection */
+	redis: () => Pick<Redis, "set" | "eval">;
 	logger: CoreLogger;
 }
 
@@ -51,7 +52,7 @@ export function startCron({ schedules, redis, logger }: CronOptions): Cron[] {
 			async (self: Cron) => {
 				const tick = self.currentRun()?.toISOString() ?? new Date().toISOString();
 				const ran = await withLock(
-					redis,
+					redis(),
 					`schedule:${schedule.name}:${tick}`,
 					schedule.lockTtlMs ?? 60_000,
 					() => schedule.run({ logger: log }),
