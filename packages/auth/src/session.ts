@@ -29,7 +29,7 @@ async function activeMembership(auth: SessionAuth, userId: string, orgId: unknow
 			{ field: "userId", value: userId },
 		],
 	});
-	return member ? orgId : null;
+	return member ? { orgId, role: (member as { role?: string }).role ?? null } : null;
 }
 
 /** The better-auth session (cookie or bearer token) as a principal. Roles come from the admin plugin's `role`. */
@@ -41,9 +41,11 @@ export async function sessionPrincipal(
 	if (!session) return null;
 	const user = session.user as { id: string; role?: string | null };
 	const { activeOrganizationId } = session.session as { activeOrganizationId?: string | null };
+	const membership = await activeMembership(auth, user.id, activeOrganizationId);
 	return {
 		userId: user.id,
-		orgId: await activeMembership(auth, user.id, activeOrganizationId),
+		orgId: membership?.orgId ?? null,
+		orgRole: membership?.role ?? null,
 		roles: (user.role ?? "user")
 			.split(",")
 			.map((role) => role.trim())

@@ -59,6 +59,18 @@ export function rolesOf(claims: KeycloakClaims, audience: string): string[] {
 	return [...roles];
 }
 
+/** Every org in the `organization` claim (ids where Keycloak includes them, else aliases). */
+export function organizationsOf(claims: KeycloakClaims): string[] {
+	const org = claims.organization;
+	if (Array.isArray(org)) return org.filter((o): o is string => typeof o === "string");
+	if (org && typeof org === "object")
+		return Object.entries(org).map(([alias, value]) => {
+			const id = (value as { id?: unknown } | undefined)?.id;
+			return typeof id === "string" ? id : alias;
+		});
+	return [];
+}
+
 /** Keycloak organizations put memberships in the `organization` claim; the first one wins. */
 export function organizationOf(claims: KeycloakClaims): string | null {
 	const org = claims.organization;

@@ -1,4 +1,5 @@
 import { addonPackages } from "./codemods/addon-packages.ts";
+import { appOwnedAuth } from "./codemods/app-owned-auth.ts";
 import { authPackage } from "./codemods/auth-package.ts";
 import { authzPackage } from "./codemods/authz-package.ts";
 import { authzStores } from "./codemods/authz-stores.ts";
@@ -32,4 +33,5 @@ export const CODEMODS: readonly Codemod[] = [
 	frameworkTests,
 	authzStores,
 	packageCommands,
+	appOwnedAuth,
 ];

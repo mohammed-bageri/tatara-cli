@@ -2,6 +2,7 @@
 export const SYSTEM_ROLES = [
 	{ key: "admin", name: "Admin", description: "Full access, including roles and members." },
 	{ key: "member", name: "Member", description: "Default role for every member." },
+	// tatara:slot roles
 ] as const;
 
 export type SystemRoleKey = (typeof SYSTEM_ROLES)[number]["key"];

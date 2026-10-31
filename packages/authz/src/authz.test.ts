@@ -36,9 +36,15 @@ beforeEach(() => {
 	authz = createAuthz<Key>({ store: memoryAuthzStore(), catalog, systemRoles: SYSTEM_ROLES });
 });
 
-const who = (userId: string, roles: string[] = [], orgId: string | null = null): Principal => ({
+const who = (
+	userId: string,
+	roles: string[] = [],
+	orgId: string | null = "default",
+	orgRole: string | null = null,
+): Principal => ({
 	userId,
 	orgId,
+	orgRole,
 	roles,
 	kind: "user",
 	claims: {},
@@ -179,6 +185,52 @@ describe("createAuthz", () => {
 	});
 });
 
+describe("tenant context", () => {
+	it("refuses a check with no org instead of falling back to a default one", async () => {
+		await expect(authz.checkPermission(who("u1", [], null), "doc:publish")).rejects.toMatchObject({
+			code: "ORG_REQUIRED",
+		});
+	});
+
+	it("uses the app's fixed org when it says it's single-tenant", async () => {
+		const single = createAuthz<Key>({
+			store: memoryAuthzStore(),
+			catalog,
+			systemRoles: SYSTEM_ROLES,
+			singleTenant: "default",
+		});
+		await single.addOverlay(null, "default", "u1", {
+			resource: "doc",
+			action: "publish",
+			effect: "grant",
+		});
+		expect(await single.checkPermission(who("u1", [], null), "doc:publish")).toBe(true);
+	});
+
+	it("honours the member's org role as a built-in role in that org", async () => {
+		await authz.syncSystemRoles();
+		expect(await authz.resolveScope(who("u1", [], "org-a", "admin"), "doc:read")).toBe("org");
+		expect(await authz.resolveScope(who("u1", [], "org-a", "nobody"), "doc:read")).toBeNull();
+	});
+
+	it("reads every role of a member with several (better-auth stores them comma-separated)", async () => {
+		await authz.syncSystemRoles();
+		expect(await authz.resolveScope(who("u1", [], "org-a", "owner,admin"), "doc:read")).toBe("org");
+	});
+
+	it("removes a member's access through the organization hooks it gives better-auth", async () => {
+		const { authzOrganizationHooks } = await import("./index.ts");
+		await authz.addOverlay(null, "org-a", "u1", {
+			resource: "doc",
+			action: "publish",
+			effect: "grant",
+		});
+		const hooks = authzOrganizationHooks(authz);
+		await hooks.afterRemoveMember({ member: { organizationId: "org-a", userId: "u1" } });
+		expect(await authz.checkPermission(who("u1", [], "org-a"), "doc:publish")).toBe(false);
+	});
+});
+
 describe("requirePermission", () => {
 	it("answers 401, then 403, then lets the holder through", async () => {
 		expect((await app().request("/docs")).status).toBe(401);
@@ -189,6 +241,25 @@ describe("requirePermission", () => {
 			effect: "grant",
 		});
 		expect((await app().request("/docs", { headers: { "x-user": "u1" } })).status).toBe(200);
+	});
+});
+
+describe("authorizationRoutes options", () => {
+	it("runs the app's middleware first, e.g. its org check", async () => {
+		const blocked = createApp<Env>({
+			logger: pino({ level: "silent" }),
+			cors: { origins: [] },
+			bodyLimitBytes: 10_000,
+			defaults: { principal: null },
+		});
+		blocked.route(
+			"/authorization",
+			authorizationRoutes<Env>(authz, {
+				use: [async (c) => c.json({ error: "org first" }, 400)],
+			}),
+		);
+		const res = await blocked.request("/authorization/roles", { headers: { "x-user": "u1" } });
+		expect(res.status).toBe(400);
 	});
 });
 

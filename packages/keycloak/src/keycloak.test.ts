@@ -9,6 +9,7 @@ import {
 	keycloakTokens,
 	keycloakVerifier,
 	organizationOf,
+	organizationsOf,
 	rolesOf,
 } from "./index.ts";
 import { useTestKeys } from "./testing.ts";
@@ -60,6 +61,8 @@ describe("keycloakTokens + keycloakPrincipal", () => {
 		const sub = crypto.randomUUID();
 		const principal = await principalOf(await keycloakToken({ sub, roles: ["teacher"] }));
 		expect(principal).toMatchObject({ userId: sub, kind: "user", orgId: null });
+		// no organization claim: better-auth membership decides the orgs
+		expect(principal?.orgs).toBeUndefined();
 		expect(principal?.roles).toContain("teacher");
 	});
 
@@ -133,6 +136,7 @@ describe("keycloakTokens + keycloakPrincipal", () => {
 			true,
 		);
 		expect(principal?.orgId).toBe("school-1");
+		expect(principal?.orgs).toEqual(["school-1"]);
 		expect(db.organization?.map((o) => o.id)).toEqual(["school-1"]);
 		expect(db.member?.find((m) => m.userId === sub)).toMatchObject({ organizationId: "school-1" });
 	});
@@ -157,5 +161,16 @@ describe("claims", () => {
 		[undefined, null],
 	])("reads the organization from %j", (organization, expected) => {
 		expect(organizationOf({ sub: "s", organization })).toBe(expected);
+	});
+
+	it.each([
+		[
+			["org-a", "org-b"],
+			["org-a", "org-b"],
+		],
+		[{ a: { id: "org-id" }, b: {} }, ["org-id", "b"]],
+		[undefined, []],
+	])("reads every organization from %j", (organization, expected) => {
+		expect(organizationsOf({ sub: "s", organization })).toEqual(expected);
 	});
 });

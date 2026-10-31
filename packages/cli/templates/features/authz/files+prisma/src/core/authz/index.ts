@@ -9,6 +9,7 @@ export const authz = createAuthz<PermissionKey>({
 	store: prismaAuthzStore(db),
 	catalog,
 	systemRoles: SYSTEM_ROLES,
+	// tatara:slot options
 });
 
 export const { checkPermission, removeMemberAccess, requirePermission, resolveScope } = authz;

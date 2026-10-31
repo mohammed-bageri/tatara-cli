@@ -109,7 +109,7 @@ describe("0.6.0 authz-package codemod", () => {
 		expect(exists(project, `${D}/resolver.ts`)).toBe(false);
 		expect(read(project, `${D}/index.ts`)).toContain("createAuthz<PermissionKey>(");
 		expect(read(project, `${D}/routes/authorization.routes.ts`)).toContain(
-			"authorizationRoutes<AppEnv>(authz)",
+			"authorizationRoutes<AppEnv>(authz",
 		);
 		expect(read(project, "tests/helpers/authz.ts")).toContain("authz.addOverlay(");
 		expect(JSON.parse(read(project, "package.json")).dependencies["@tatara/authz"]).toMatch(

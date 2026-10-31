@@ -237,7 +237,8 @@ export interface GenerateOptions {
 
 /** Tests of tatara's wiring, not of the app; generated apps leave them out. */
 export function isFrameworkTest(path: string): boolean {
-	return /^src\/core\/.+\/tests\/[^/]+\.test\.ts$/.test(path);
+	// tests/tatara/ since 0.10; src/core/<area>/tests/ before, so older apps' copies are still recognised
+	return path.startsWith("tests/tatara/") || /^src\/core\/.+\/tests\/[^/]+\.test\.ts$/.test(path);
 }
 
 /** Folds applicable variants into each feature so later steps see one flat definition. */

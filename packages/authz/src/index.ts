@@ -3,7 +3,9 @@ export {
 	type Authz,
 	type AuthzOptions,
 	allows,
+	authzOrganizationHooks,
 	createAuthz,
+	OrgRequiredError,
 	type OverlayInput,
 	orgOf,
 	type RoleInput,
@@ -37,7 +39,7 @@ export {
 	SYSTEM_ORG_ID,
 } from "./constants.ts";
 export { authzPermissions } from "./permissions.ts";
-export { authorizationRoutes } from "./routes.ts";
+export { type AuthorizationRoutesOptions, authorizationRoutes } from "./routes.ts";
 export {
 	type AuditRow,
 	type AuthzStore,
