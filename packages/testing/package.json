@@ -1,6 +1,6 @@
 {
 	"name": "@tatara/testing",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "tatara test helpers: in-process API client and one database per test worker",
 	"type": "module",
 	"license": "MIT",
