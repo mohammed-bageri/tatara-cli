@@ -71,6 +71,17 @@ export const authz: Feature = {
 	],
 };
 
+const REDIS_SERVICE = {
+	image: "redis:8-alpine",
+	ports: ["${REDIS_PORT:-6379}:6379"],
+	healthcheck: {
+		test: ["CMD", "redis-cli", "ping"],
+		interval: "2s",
+		timeout: "3s",
+		retries: 30,
+	},
+};
+
 export const jobs: Feature = {
 	id: "jobs",
 	kind: "addon",
@@ -102,18 +113,7 @@ export const jobs: Feature = {
 			example: "5",
 		},
 	],
-	compose: {
-		redis: {
-			image: "redis:8-alpine",
-			ports: ["${REDIS_PORT:-6379}:6379"],
-			healthcheck: {
-				test: ["CMD", "redis-cli", "ping"],
-				interval: "2s",
-				timeout: "3s",
-				retries: 30,
-			},
-		},
-	},
+	compose: { redis: REDIS_SERVICE },
 	slots: [
 		{
 			file: "tsdown.config.ts",
@@ -145,6 +145,51 @@ export const jobs: Feature = {
 - Recurring work: \`schedules/<name>.ts\` (\`defineSchedule({ name, cron, run })\`). A Redis lock makes
   each tick run once across every cron process.
 - Processes: \`apps/worker\` runs consumers, \`apps/cron\` runs schedules. \`dev\` starts both.
+`,
+		},
+	],
+};
+
+const cacheDriver = (drivers: string[]) => ({
+	key: "CACHE_DRIVER",
+	schema: `localDefault(z.enum(${JSON.stringify(drivers)}), "redis")`,
+	example: "redis",
+	test: "memory",
+	comment: `Where the cache lives: ${drivers.join(", ")} (memory is per process)`,
+});
+
+export const cache: Feature = {
+	id: "cache",
+	kind: "addon",
+	label: "Cache (Redis, Postgres or memory)",
+	dependencies: ["@tatara/cache", "ioredis"],
+	env: [
+		{
+			key: "REDIS_PORT",
+			schema: "",
+			example: "6379",
+			composeOnly: true,
+			comment: "Host port for local Redis",
+		},
+		{ key: "REDIS_URL", schema: "z.url()", example: "redis://localhost:6379/0" },
+	],
+	variants: [
+		{ when: ["postgres"], env: [cacheDriver(["redis", "postgres", "memory"])] },
+		{ unless: ["postgres"], env: [cacheDriver(["redis", "memory"])] },
+	],
+	compose: { redis: REDIS_SERVICE },
+	slots: [
+		{
+			file: "AGENTS.md",
+			slot: "sections",
+			content: `## Cache
+
+- \`cache\` from \`#core/cache/index\`: \`get/set/del\`, \`wrap(key, ttlMs, fn)\` (cache-aside; a failing
+  store falls back to \`fn\`), \`increment\` (fixed-window counters), \`add\`/\`take\` (single-use values)
+  and \`lock(key, ttlMs, fn)\` (one holder across processes).
+- Scope keys with \`orgKey(orgId, …)\` / \`userKey(userId, …)\` from \`@tatara/cache\`, and drop them all
+  with \`cache.delPrefix(orgKey(orgId))\`.
+- \`CACHE_DRIVER\` picks the store (Redis by default; tests use memory). Values must be JSON.
 `,
 		},
 	],

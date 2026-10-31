@@ -1,4 +1,4 @@
-import { admin, authz, email, i18n, jobs, storage } from "./addons.ts";
+import { admin, authz, cache, email, i18n, jobs, storage } from "./addons.ts";
 import {
 	auth,
 	authEmailOtp,
@@ -32,6 +32,7 @@ export const FEATURES: Record<string, Feature> = Object.fromEntries(
 		auth,
 		authz,
 		jobs,
+		cache,
 		admin,
 		storage,
 		email,
