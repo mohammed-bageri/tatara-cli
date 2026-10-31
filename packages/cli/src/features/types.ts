@@ -2,7 +2,15 @@ export type Orm = "drizzle" | "prisma";
 export type Database = "postgres" | "mysql";
 export type AuthProvider = "better-auth" | "none";
 export type AuthMethod = "email-otp" | "phone-otp" | "password" | "keycloak" | "orgs";
-export type Addon = "authz" | "jobs" | "cache" | "admin" | "storage" | "email" | "i18n";
+export type Addon =
+	| "authz"
+	| "jobs"
+	| "cache"
+	| "notifications"
+	| "admin"
+	| "storage"
+	| "email"
+	| "i18n";
 export type PackageManager = "pnpm" | "npm" | "bun";
 
 export interface AppOptions {

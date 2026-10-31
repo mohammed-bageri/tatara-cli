@@ -1,0 +1,31 @@
+// One row per user per notification; in_app false rows only record what was sent.
+
+model Notification {
+  id             String    @id @db.VarChar(36)
+  orgId          String    @map("org_id") @db.VarChar(255)
+  userId         String    @map("user_id") @db.VarChar(255)
+  name           String    @db.VarChar(255)
+  title          String    @db.Text
+  body           String?   @db.Text
+  url            String?   @db.Text
+  inApp          Boolean   @default(true) @map("in_app")
+  idempotencyKey String    @unique @map("idempotency_key") @db.VarChar(255)
+  sentChannels   String    @default("") @map("sent_channels") @db.VarChar(64)
+  readAt         DateTime? @map("read_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  @@index([orgId, userId, createdAt], map: "notifications_inbox")
+  @@map("notifications")
+}
+
+// Devices that receive push, by FCM token.
+model PushToken {
+  token      String   @id @db.VarChar(512)
+  userId     String   @map("user_id") @db.VarChar(255)
+  device     String?  @db.VarChar(255)
+  createdAt  DateTime @default(now()) @map("created_at")
+  lastSeenAt DateTime @default(now()) @map("last_seen_at")
+
+  @@index([userId], map: "push_tokens_user")
+  @@map("push_tokens")
+}

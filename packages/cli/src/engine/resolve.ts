@@ -3,15 +3,20 @@ import type { AppOptions, Feature } from "../features/types.ts";
 
 export class OptionsError extends Error {}
 
+/** Add-ons others need: notifications deliver through jobs, and schedules lock with the cache. */
+function impliedAddons(addons: AppOptions["addons"]): AppOptions["addons"] {
+	const out = new Set(addons);
+	if (out.has("notifications")) out.add("jobs");
+	if (out.has("jobs")) out.add("cache");
+	return [...out];
+}
+
 /** Normalizes and validates options; throws OptionsError with a user-facing message. */
 export function validateOptions(input: AppOptions): AppOptions {
 	const options: AppOptions = {
 		...input,
 		authMethods: [...new Set(input.authMethods)],
-		// schedules lock with the cache, so jobs bring it along
-		addons: [
-			...new Set([...input.addons, ...(input.addons.includes("jobs") ? (["cache"] as const) : [])]),
-		],
+		addons: impliedAddons(input.addons),
 	};
 	if (!/^[a-z][a-z0-9-]*$/.test(options.name)) {
 		throw new OptionsError(
@@ -36,11 +41,14 @@ export function validateOptions(input: AppOptions): AppOptions {
 		throw new OptionsError("Auth methods only apply to better-auth.");
 	}
 	for (const addon of options.addons) {
-		if ((addon === "authz" || addon === "admin") && options.auth === "none") {
+		if (
+			(addon === "authz" || addon === "admin" || addon === "notifications") &&
+			options.auth === "none"
+		) {
 			throw new OptionsError(`The ${addon} add-on needs an auth provider.`);
 		}
-		if (addon === "authz" && !hasDb) {
-			throw new OptionsError("The authz add-on needs a database.");
+		if ((addon === "authz" || addon === "notifications") && !hasDb) {
+			throw new OptionsError(`The ${addon} add-on needs a database.`);
 		}
 	}
 	return options;

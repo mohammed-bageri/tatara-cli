@@ -19,7 +19,17 @@ function identifier(path: string, prefix: string): string {
 		.replace(/\.ts$/, "")
 		.split("/")
 		.filter(
-			(p) => !["routes", "commands", "consumers", "schedules", "permissions", "db"].includes(p),
+			(p) =>
+				![
+					"routes",
+					"commands",
+					"consumers",
+					"schedules",
+					"permissions",
+					"db",
+					"emails",
+					"notifications",
+				].includes(p),
 		);
 	const raw = `${prefix}_${parts.join("_")}`.replace(/[^A-Za-z0-9_]/g, "_");
 	return raw.replace(/_+/g, "_");
@@ -56,6 +66,23 @@ function consumerList(files: string[]): string {
 ${imports.join("\n")}${imports.length ? "\n" : ""}
 // biome-ignore lint/suspicious/noExplicitAny: every consumer, whatever its payload
 export const consumers = [${names.join(", ")}] as const satisfies readonly ConsumerDefinition<string, any>[];
+`;
+}
+
+/** A convention folder's default exports, with their literal names kept for typed lookups. */
+function definitionList(
+	files: string[],
+	prefix: string,
+	pkg: string,
+	typeName: string,
+	exportName: string,
+): string {
+	const imports = files.map((f) => `import ${identifier(f, prefix)} from "${specifier(f)}";`);
+	const names = files.map((f) => identifier(f, prefix));
+	return `${HEADER}import type { ${typeName} } from "${pkg}";
+${imports.join("\n")}${imports.length ? "\n" : ""}
+// biome-ignore lint/suspicious/noExplicitAny: every definition, whatever its data
+export const ${exportName} = [${names.join(", ")}] as const satisfies readonly ${typeName}<string, any>[];
 `;
 }
 
@@ -206,6 +233,30 @@ export async function sync(project: Project = loadProject()): Promise<SyncResult
 				typeName: "ScheduleDefinition",
 				exportName: "schedules",
 			}),
+			written,
+		);
+	}
+
+	if (project.has("email")) {
+		const emails = await find(root, ["src/modules/*/emails/*.ts"]);
+		await write(
+			join(out, "emails.ts"),
+			definitionList(emails, "email", "@tatara/email", "EmailDefinition", "emails"),
+			written,
+		);
+	}
+
+	if (project.has("notifications")) {
+		const notifications = await find(root, ["src/modules/*/notifications/*.ts"]);
+		await write(
+			join(out, "notifications.ts"),
+			definitionList(
+				notifications,
+				"notification",
+				"@tatara/notifications",
+				"NotificationDefinition",
+				"notifications",
+			),
 			written,
 		);
 	}
