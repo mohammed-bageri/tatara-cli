@@ -20,7 +20,7 @@ it("records hashes without installing", async () => {
 		generated?: { cli: string; files: Record<string, string> };
 	};
 	expect(config.generated?.cli).toBe(config.version);
-	expect(config.generated?.files["src/core/http/app.ts"]).toBe(
-		hashContent(readFileSync(join(root, "src/core/http/app.ts"), "utf8")),
+	expect(config.generated?.files["src/apps/http.ts"]).toBe(
+		hashContent(readFileSync(join(root, "src/apps/http.ts"), "utf8")),
 	);
 });

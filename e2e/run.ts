@@ -219,9 +219,11 @@ async function smoke(s: Scenario, dir: string, logDir: string): Promise<string[]
 		expect((await fetch(`${base}/api/greetings?name=E2E`)).ok, "greetings failed");
 
 		const user = await tokenFor(s, base, dir, "user");
+		// apps with organizations act in one: set once the admin has created it
+		let orgHeader: Record<string, string> = {};
 		const auth = (token?: string): Record<string, string> =>
 			token
-				? { authorization: `Bearer ${token}`, "content-type": "application/json" }
+				? { authorization: `Bearer ${token}`, "content-type": "application/json", ...orgHeader }
 				: { "content-type": "application/json" };
 		if (user) {
 			const me = await json(await fetch(`${base}/api/me`, { headers: auth(user) }));
@@ -240,7 +242,25 @@ async function smoke(s: Scenario, dir: string, logDir: string): Promise<string[]
 					? await tokenFor(s, base, dir, "admin")
 					: undefined;
 			if (admin) crudToken = admin;
-			else {
+			if (admin && s.authMethods?.includes("orgs") && s.authMethods?.includes("keycloak")) {
+				// Keycloak tokens carry the org (the dev realm's Demo School); act in it
+				const me = await json(await fetch(`${base}/api/me`, { headers: auth(admin) }));
+				const orgId = (me.data as { orgId?: string | null } | undefined)?.orgId;
+				expect(orgId, `the Keycloak token named no organization: ${JSON.stringify(me)}`);
+				orgHeader = { "x-org-id": orgId as string };
+			} else if (admin && s.authMethods?.includes("orgs")) {
+				const org = await json(
+					await fetch(`${base}/api/auth/organization/create`, {
+						method: "POST",
+						headers: auth(admin),
+						body: JSON.stringify({ name: "E2E School", slug: `e2e-${Date.now()}` }),
+					}),
+				);
+				const orgId = (org as { id?: string }).id;
+				expect(orgId, `organization/create failed: ${JSON.stringify(org)}`);
+				orgHeader = { "x-org-id": orgId as string };
+			}
+			if (!admin) {
 				const me = await json(await fetch(`${base}/api/me`, { headers: auth(user) }));
 				const userId = (me.data as { userId: string }).userId;
 				const grant = await run(
@@ -270,9 +290,16 @@ async function smoke(s: Scenario, dir: string, logDir: string): Promise<string[]
 				"roles list failed",
 			);
 			if (crudToken !== user) {
+				// members may read projects; creating one is for admins
 				expect(
-					(await fetch(`${base}/api/projects`, { headers: auth(user) })).status === 403,
-					"plain user was not 403",
+					(
+						await fetch(`${base}/api/projects`, {
+							method: "POST",
+							headers: auth(user),
+							body: JSON.stringify({ name: "Nope" }),
+						})
+					).status === 403,
+					"plain user could create a project",
 				);
 			}
 			notes.push("authz");

@@ -63,10 +63,14 @@ function guardSlots(project: Project, n: Names): SlotFill[] {
 	const add = (slot: string, content: string) => fills.push({ slot, content, order: fills.length });
 	if (project.has("authz")) {
 		add("imports", 'import { requirePermission } from "#core/authz/index";');
+		// with organizations, each request names the org it acts in before permissions are checked
+		const orgs = project.has("auth-orgs");
+		if (orgs) add("imports", 'import { requireOrg } from "#modules/users/services/auth";');
 		for (const [route, action] of Object.entries(ACTIONS)) {
+			const guards = `${orgs ? "requireOrg(), " : ""}requirePermission("${n.kebab}:${action}")`;
 			add(
 				`guard-${route}`,
-				`middleware: [requirePermission("${n.kebab}:${action}")] as const,\nsecurity: [{ bearerAuth: ["${n.kebab}:${action}"] }],`,
+				`middleware: [${guards}] as const,\nsecurity: [{ bearerAuth: ["${n.kebab}:${action}"] }],`,
 			);
 		}
 		add("auth-errors", "...errorResponses(401, 403),");

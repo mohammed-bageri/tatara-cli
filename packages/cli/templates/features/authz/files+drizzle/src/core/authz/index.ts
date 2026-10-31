@@ -10,6 +10,7 @@ export const authz = createAuthz<PermissionKey>({
 	store: drizzleAuthzStore(db, tables),
 	catalog,
 	systemRoles: SYSTEM_ROLES,
+	// tatara:slot options
 });
 
 export const { checkPermission, removeMemberAccess, requirePermission, resolveScope } = authz;

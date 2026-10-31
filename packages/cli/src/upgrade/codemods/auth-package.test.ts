@@ -89,6 +89,8 @@ describe("0.5.0 auth-package codemod", () => {
 		expect(report.removed.sort()).toEqual([
 			"src/core/auth/middleware.ts",
 			"src/core/auth/openapi.ts",
+			// merged into the users module's auth.ts since 0.10; the 0.10 codemod writes that file
+			"src/core/auth/principal.ts",
 		]);
 		expect(deps(project)["@tatara/auth"]).toMatch(/^\^0\./);
 		expect(deps(project)["@tatara/keycloak"]).toBeUndefined();
@@ -105,7 +107,7 @@ describe("0.5.0 auth-package codemod", () => {
 		);
 		expect(read(project, "src/core/auth/delivery.ts")).toContain("createOutbox(");
 		expect(read(project, "src/core/auth/sms.ts")).toContain("consoleSmsSender(logger)");
-		expect(read(project, "src/core/auth/principal.ts")).toContain("sessionPrincipal(auth,");
+		expect(exists(project, "src/core/auth/principal.ts")).toBe(false);
 		expect(read(project, "tests/helpers/auth.ts")).toContain('from "@tatara/auth/testing"');
 	});
 
@@ -118,7 +120,7 @@ describe("0.5.0 auth-package codemod", () => {
 		expect(read(project, "src/core/auth/delivery.ts")).toBe(OLD["src/core/auth/delivery.ts"]);
 		expect(report.notes.join("\n")).toContain("src/core/http/app.ts is customised");
 		// the other groups still move
-		expect(read(project, "src/core/auth/principal.ts")).toContain("sessionPrincipal(auth,");
+		expect(report.removed).toContain("src/core/auth/principal.ts");
 		expect(report.removed).toContain("src/core/auth/middleware.ts");
 	});
 
@@ -150,7 +152,7 @@ describe("0.5.0 auth-package codemod", () => {
 		expect(read(project, "src/core/auth/auth.ts")).toContain('from "@tatara/keycloak"');
 		expect(read(project, "src/core/auth/commands/keycloak-token.ts")).toContain("keycloak.issuer");
 		expect(read(project, "tests/helpers/auth.ts")).toContain("useTestKeys(keycloak)");
-		expect(read(project, "src/core/auth/principal.ts")).toContain("keycloakPrincipal(auth,");
+		expect(read(project, "src/core/auth/auth.ts")).toContain("keycloakPrincipal(instance,");
 	});
 
 	it("keeps the Keycloak group when auth.ts is customised", async () => {
@@ -175,7 +177,7 @@ describe("0.5.0 auth-package codemod", () => {
 	it("is idempotent", async () => {
 		const project = app({ keycloak: true });
 		await run(project);
-		const paths = ["src/core/http/app.ts", "src/core/auth/principal.ts", "tests/helpers/auth.ts"];
+		const paths = ["src/core/http/app.ts", "src/core/auth/auth.ts", "tests/helpers/auth.ts"];
 		const before = paths.map((p) => read(project, p));
 		const again = loadProject(project.root);
 		await upgrade(

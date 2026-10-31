@@ -24,6 +24,26 @@ export const authz: Feature = {
 	dependencies: ["@tatara/authz"],
 	slots: [
 		{
+			// without organizations the app has one tenant; say so instead of falling back silently
+			file: "src/core/authz/index.ts",
+			slot: "options",
+			unless: ["auth-orgs"],
+			content: 'singleTenant: "default",',
+		},
+		{
+			// each request names the org it acts in
+			file: "src/modules/users/routes/authorization.routes.ts",
+			slot: "route-options",
+			when: ["auth-orgs"],
+			content: "use: [requireOrg()],",
+		},
+		{
+			file: "src/modules/users/routes/authorization.routes.ts",
+			slot: "imports",
+			when: ["auth-orgs"],
+			content: 'import { requireOrg } from "#modules/users/services/auth";',
+		},
+		{
 			file: "tests/helpers/auth.ts",
 			slot: "imports",
 			content: 'import { applyTestAccess, type TestAccess } from "#tests/helpers/authz";',
@@ -33,16 +53,19 @@ export const authz: Feature = {
 			slot: "options",
 			content: 'permissions?: TestAccess["permissions"];\nsystemRoles?: TestAccess["systemRoles"];',
 		},
-		{
-			file: "tests/helpers/auth.ts",
-			slot: "options",
-			when: ["better-auth"],
-			content: "orgId?: string;",
-		},
+
 		{
 			file: "tests/helpers/auth.ts",
 			slot: "as-user",
+			unless: ["auth-orgs"],
 			content: "await applyTestAccess(user.userId, options);",
+		},
+		{
+			// roles and grants go in the org the user acts in
+			file: "tests/helpers/auth.ts",
+			slot: "as-user",
+			when: ["auth-orgs"],
+			content: "await applyTestAccess(user.userId, { ...options, orgId: user.orgId });",
 		},
 		{ file: "AGENTS.md", slot: "sections", content: AUTHZ_AGENTS },
 	],
@@ -141,12 +164,12 @@ export const admin: Feature = {
 			content: '"apps/admin/server": "src/apps/admin/server.ts",',
 		},
 		{
-			file: "src/core/http/app.ts",
+			file: "src/apps/http.ts",
 			slot: "imports",
 			content: 'import { requireRole } from "@tatara/auth";',
 		},
 		{
-			file: "src/core/http/app.ts",
+			file: "src/apps/http.ts",
 			slot: "routes",
 			order: 5,
 			content: 'if (name === "admin") app.use(`${API_PREFIX}/*`, requireRole("admin"));',
@@ -302,23 +325,23 @@ export const i18n: Feature = {
 	env: [{ key: "DEFAULT_LANGUAGE", schema: 'z.enum(["en", "ar"]).default("en")', example: "en" }],
 	slots: [
 		{
-			file: "src/core/http/app.ts",
+			file: "src/apps/http.ts",
 			slot: "imports",
 			content: 'import { detectLanguage } from "#core/i18n/index";',
 		},
 		{
-			file: "src/core/http/app.ts",
+			file: "src/apps/http.ts",
 			slot: "middleware",
 			order: 10,
 			content: "app.use(detectLanguage);",
 		},
 		{
-			file: "src/core/http/app.ts",
+			file: "src/apps/http.ts",
 			slot: "imports",
 			content: 'import { t } from "#core/i18n/index";',
 		},
 		{
-			file: "src/core/http/app.ts",
+			file: "src/apps/http.ts",
 			slot: "error-options",
 			content: [
 				"message: (err, c) =>",

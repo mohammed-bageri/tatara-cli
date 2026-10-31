@@ -7,6 +7,7 @@ import type { Project } from "../project/config.ts";
 import { ejectedPackages, pointAtEjected } from "../project/ejected.ts";
 import type { Baseline } from "./baseline.ts";
 import { importsOf } from "./codemods/imports.ts";
+import { currentPath } from "./moves.ts";
 
 export interface UpgradeReport {
 	ran: string[];
@@ -112,7 +113,7 @@ export function createContext(
 		async renderCurrent(path) {
 			const { name, orm, database, auth, authMethods, addons, packageManager } = project.config;
 			rendered ??= renderApp({ name, orm, database, auth, authMethods, addons, packageManager });
-			return (await rendered).get(path);
+			return (await rendered).get(currentPath(path));
 		},
 		async regenerate(path) {
 			const next = await ctx.renderCurrent(path);

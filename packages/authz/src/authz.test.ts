@@ -239,6 +239,25 @@ describe("requirePermission", () => {
 	});
 });
 
+describe("authorizationRoutes options", () => {
+	it("runs the app's middleware first, e.g. its org check", async () => {
+		const blocked = createApp<Env>({
+			logger: pino({ level: "silent" }),
+			cors: { origins: [] },
+			bodyLimitBytes: 10_000,
+			defaults: { principal: null },
+		});
+		blocked.route(
+			"/authorization",
+			authorizationRoutes<Env>(authz, {
+				use: [async (c) => c.json({ error: "org first" }, 400)],
+			}),
+		);
+		const res = await blocked.request("/authorization/roles", { headers: { "x-user": "u1" } });
+		expect(res.status).toBe(400);
+	});
+});
+
 describe("authorizationRoutes", () => {
 	const admin = { "x-user": "admin-1", "x-roles": "admin", "content-type": "application/json" };
 

@@ -17,18 +17,18 @@ export const auth: Feature = {
 	dependencies: ["@tatara/auth"],
 	slots: [
 		{
-			file: "src/core/http/app.ts",
+			file: "src/apps/http.ts",
 			slot: "imports",
-			content: 'import { attachPrincipal } from "#core/auth/principal";',
+			content: 'import { attachPrincipal } from "#modules/users/services/auth";',
 		},
 		{
-			file: "src/core/http/app.ts",
+			file: "src/apps/http.ts",
 			slot: "middleware",
 			order: 50,
 			content: "app.use(attachPrincipal);",
 		},
 		{
-			file: "src/core/http/app.ts",
+			file: "src/apps/http.ts",
 			slot: "routes",
 			order: 0,
 			content: [
@@ -49,7 +49,7 @@ const BETTER_AUTH_AGENTS = `### better-auth
 - Sessions work as cookies (browsers) and as \`Authorization: Bearer <session token>\` (mobile, APIs).
 - Outside production, every email and SMS is kept in an in-memory outbox:
   \`GET /api/dev/outbox?to=<address>\` returns the latest messages, including sign-in codes.
-- To send real SMS, implement \`SmsSender\` (from \`@tatara/auth\`) in \`src/core/auth/sms.ts\`.
+- To send real SMS, implement \`SmsSender\` (from \`@tatara/auth\`) in \`src/modules/users/services/sms.ts\`.
 `;
 
 const drizzlePg = ["drizzle", "postgres"];
@@ -85,28 +85,28 @@ export const betterAuth: Feature = {
 	],
 	slots: [
 		{
-			file: "src/core/http/app.ts",
+			file: "src/apps/http.ts",
 			slot: "imports",
-			content: 'import { auth } from "#core/auth/auth";',
+			content: 'import { auth } from "#modules/users/services/auth";',
 		},
 		{
-			file: "src/core/http/app.ts",
+			file: "src/apps/http.ts",
 			slot: "imports",
-			content: 'import { outbox } from "#core/auth/delivery";',
+			content: 'import { outbox } from "#modules/users/services/delivery";',
 		},
 		{
-			file: "src/core/http/app.ts",
+			file: "src/apps/http.ts",
 			slot: "imports",
 			content: 'import { mergeAuthOpenApi } from "@tatara/auth";',
 		},
 		{
 			// browser clients (e.g. WebGL builds) read the bearer token from this response header
-			file: "src/core/http/app.ts",
+			file: "src/apps/http.ts",
 			slot: "expose-headers",
 			content: '"set-auth-token",',
 		},
 		{
-			file: "src/core/http/app.ts",
+			file: "src/apps/http.ts",
 			slot: "openapi-options",
 			content: [
 				"async extend(document) {",
@@ -115,7 +115,7 @@ export const betterAuth: Feature = {
 			].join("\n"),
 		},
 		{
-			file: "src/core/http/app.ts",
+			file: "src/apps/http.ts",
 			slot: "routes",
 			order: 1,
 			content: [
@@ -128,29 +128,35 @@ export const betterAuth: Feature = {
 			].join("\n"),
 		},
 		{
-			file: "src/core/auth/delivery.ts",
+			file: "src/modules/users/services/delivery.ts",
 			slot: "email-delivery",
 			unless: ["email"],
 			content:
 				'logger.info({ to: message.to, subject: message.subject }, "email not sent: no email provider configured");',
 		},
 		{
-			file: "src/core/auth/delivery.ts",
+			file: "src/modules/users/services/delivery.ts",
 			slot: "imports",
 			unless: ["email"],
 			content: 'import { logger } from "#core/logging/logger";',
 		},
 		{
-			file: "src/core/auth/delivery.ts",
+			file: "src/modules/users/services/delivery.ts",
 			slot: "imports",
 			when: ["email"],
 			content: 'import { sendEmail } from "#core/email/send";',
 		},
 		{
-			file: "src/core/auth/delivery.ts",
+			file: "src/modules/users/services/delivery.ts",
 			slot: "email-delivery",
 			when: ["email"],
 			content: "await sendEmail({ to: message.to, subject: message.subject, text: message.text });",
+		},
+		{
+			file: "tests/helpers/auth.ts",
+			slot: "authenticated",
+			unless: ["auth-orgs"],
+			content: "return { userId, headers };",
 		},
 		{ file: "AGENTS.md", slot: "sections", content: BETTER_AUTH_AGENTS },
 	],
@@ -162,17 +168,17 @@ export const authEmailOtp: Feature = {
 	label: "Email OTP",
 	slots: [
 		{
-			file: "src/core/auth/auth.ts",
+			file: "src/modules/users/services/auth.ts",
 			slot: "imports",
-			content: 'import { deliverEmail } from "#core/auth/delivery";',
+			content: 'import { deliverEmail } from "#modules/users/services/delivery";',
 		},
 		{
-			file: "src/core/auth/auth.ts",
+			file: "src/modules/users/services/auth.ts",
 			slot: "imports",
 			content: 'import { emailOTP } from "better-auth/plugins";',
 		},
 		{
-			file: "src/core/auth/auth.ts",
+			file: "src/modules/users/services/auth.ts",
 			slot: "plugins",
 			content: [
 				"emailOTP({",
@@ -192,13 +198,13 @@ export const authEmailOtp: Feature = {
 
 const phoneFields: SlotContribution[] = [
 	{
-		file: "src/core/auth/db/auth.schema.ts",
+		file: "src/modules/users/db/auth.schema.ts",
 		slot: "user-fields",
 		when: drizzlePg,
 		content: "phoneNumber: text().unique(),\nphoneNumberVerified: boolean(),",
 	},
 	{
-		file: "src/core/auth/db/auth.schema.ts",
+		file: "src/modules/users/db/auth.schema.ts",
 		slot: "user-fields",
 		when: drizzleMy,
 		content: "phoneNumber: varchar({ length: 32 }).unique(),\nphoneNumberVerified: boolean(),",
@@ -219,17 +225,17 @@ export const authPhoneOtp: Feature = {
 	label: "Phone OTP",
 	slots: [
 		{
-			file: "src/core/auth/auth.ts",
+			file: "src/modules/users/services/auth.ts",
 			slot: "imports",
-			content: 'import { deliverSms } from "#core/auth/delivery";',
+			content: 'import { deliverSms } from "#modules/users/services/delivery";',
 		},
 		{
-			file: "src/core/auth/auth.ts",
+			file: "src/modules/users/services/auth.ts",
 			slot: "imports",
 			content: 'import { phoneNumber } from "better-auth/plugins";',
 		},
 		{
-			file: "src/core/auth/auth.ts",
+			file: "src/modules/users/services/auth.ts",
 			slot: "plugins",
 			content: [
 				"phoneNumber({",
@@ -262,12 +268,12 @@ export const authPassword: Feature = {
 	],
 	slots: [
 		{
-			file: "src/core/auth/auth.ts",
+			file: "src/modules/users/services/auth.ts",
 			slot: "imports",
-			content: 'import { deliverEmail } from "#core/auth/delivery";',
+			content: 'import { deliverEmail } from "#modules/users/services/delivery";',
 		},
 		{
-			file: "src/core/auth/auth.ts",
+			file: "src/modules/users/services/auth.ts",
 			slot: "options",
 			content: [
 				"emailAndPassword: {",
@@ -280,7 +286,7 @@ export const authPassword: Feature = {
 			].join("\n"),
 		},
 		{
-			file: "src/core/auth/db/seed.ts",
+			file: "src/modules/users/db/seed.ts",
 			slot: "seed-after-user",
 			content: [
 				"if (env.SEED_ADMIN_PASSWORD) {",
@@ -298,27 +304,27 @@ export const authPassword: Feature = {
 
 const adminFields: SlotContribution[] = [
 	{
-		file: "src/core/auth/db/auth.schema.ts",
+		file: "src/modules/users/db/auth.schema.ts",
 		slot: "user-fields",
 		when: drizzlePg,
 		content:
 			'role: text(),\nbanned: boolean().default(false),\nbanReason: text(),\nbanExpires: timestamp({ withTimezone: true, mode: "date" }),',
 	},
 	{
-		file: "src/core/auth/db/auth.schema.ts",
+		file: "src/modules/users/db/auth.schema.ts",
 		slot: "user-fields",
 		when: drizzleMy,
 		content:
 			'role: varchar({ length: 255 }),\nbanned: boolean().default(false),\nbanReason: text(),\nbanExpires: timestamp({ fsp: 3, mode: "date" }),',
 	},
 	{
-		file: "src/core/auth/db/auth.schema.ts",
+		file: "src/modules/users/db/auth.schema.ts",
 		slot: "session-fields",
 		when: drizzlePg,
 		content: "activeOrganizationId: text(),\nimpersonatedBy: text(),",
 	},
 	{
-		file: "src/core/auth/db/auth.schema.ts",
+		file: "src/modules/users/db/auth.schema.ts",
 		slot: "session-fields",
 		when: drizzleMy,
 		content:
@@ -348,13 +354,13 @@ const adminFields: SlotContribution[] = [
 		].join("\n"),
 	},
 	{
-		file: "src/core/auth/adapter.ts",
+		file: "src/modules/users/services/adapter.ts",
 		slot: "imports",
 		when: ["drizzle"],
-		content: 'import * as orgSchema from "#core/auth/db/organization.schema";',
+		content: 'import * as orgSchema from "#modules/users/db/organization.schema";',
 	},
 	{
-		file: "src/core/auth/adapter.ts",
+		file: "src/modules/users/services/adapter.ts",
 		slot: "adapter-schema",
 		when: ["drizzle"],
 		content:
@@ -362,52 +368,83 @@ const adminFields: SlotContribution[] = [
 	},
 ];
 
+const JOIN_TEST_ORG = [
+	"/** Makes the user a member of `orgId` (a shared test org by default), creating it on first use. */",
+	'export async function joinTestOrg(userId: string, orgId = "test-org", role = "member"): Promise<string> {',
+	"\tconst { adapter } = await auth.$context;",
+	'\tconst org = await adapter.findOne({ model: "organization", where: [{ field: "id", value: orgId }] });',
+	"\tif (!org) {",
+	"\t\tawait adapter.create({",
+	'\t\t\tmodel: "organization",',
+	"\t\t\tdata: { id: orgId, name: orgId, slug: orgId, createdAt: new Date() },",
+	"\t\t\tforceAllowId: true,",
+	"\t\t});",
+	"\t}",
+	"\tawait adapter.create({",
+	'\t\tmodel: "member",',
+	"\t\tdata: { organizationId: orgId, userId, role, createdAt: new Date() },",
+	"\t});",
+	"\treturn orgId;",
+	"}",
+].join("\n");
+
 export const authOrgs: Feature = {
 	id: "auth-orgs",
 	kind: "auth-method",
 	label: "Organizations + roles",
 	slots: [
 		{
-			file: "src/core/auth/auth.ts",
+			file: "src/modules/users/services/auth.ts",
 			slot: "imports",
 			content: 'import { admin, organization } from "better-auth/plugins";',
 		},
 		{
-			file: "src/core/auth/auth.ts",
+			file: "src/modules/users/services/auth.ts",
 			slot: "plugins",
 			unless: ["authz"],
 			content: "organization(),\nadmin(),",
 			order: 900,
 		},
 		{
-			file: "src/core/auth/auth.ts",
+			file: "src/modules/users/services/auth.ts",
 			slot: "plugins",
 			when: ["authz"],
 			content: [
-				"organization({",
-				"\torganizationHooks: {",
-				"\t\t// authz rows outlive better-auth's member row; without this, re-adding restores old roles",
-				"\t\tafterRemoveMember: async ({ member }) => {",
-				"\t\t\tawait removeMemberAccess(member.organizationId, member.userId);",
-				"\t\t},",
-				"\t},",
-				"}),",
+				"// a removed member's authz roles and overlays go with the membership",
+				"organization({ organizationHooks: authzOrganizationHooks(authz) }),",
 				"admin(),",
 			].join("\n"),
 			order: 900,
 		},
 		{
-			file: "src/core/auth/auth.ts",
+			file: "src/modules/users/services/auth.ts",
 			slot: "imports",
 			when: ["authz"],
-			content: 'import { removeMemberAccess } from "#core/authz/index";',
+			content:
+				'import { authzOrganizationHooks } from "@tatara/authz";\nimport { authz } from "#core/authz/index";',
 		},
 		{
 			file: "tests/helpers/auth.ts",
 			slot: "user-fields",
 			content: '...(options.roles ? { role: options.roles.join(",") } : {}),',
 		},
-		{ file: "src/core/auth/db/seed.ts", slot: "seed-user-fields", content: 'role: "admin",' },
+		{
+			file: "tests/helpers/auth.ts",
+			slot: "options",
+			content:
+				"/** the org the user joins and acts in (default: a shared test org) */\norgId?: string;",
+		},
+		{
+			// apps with organizations act in one: the test user joins it and names it on every request
+			file: "tests/helpers/auth.ts",
+			slot: "authenticated",
+			content: [
+				"const orgId = await joinTestOrg(userId, options.orgId);",
+				'return { userId, orgId, headers: { ...headers, "x-org-id": orgId } };',
+			].join("\n"),
+		},
+		{ file: "tests/helpers/auth.ts", slot: "helpers", content: JOIN_TEST_ORG },
+		{ file: "src/modules/users/db/seed.ts", slot: "seed-user-fields", content: 'role: "admin",' },
 		...adminFields,
 	],
 };
@@ -489,41 +526,41 @@ export const authKeycloak: Feature = {
 	},
 	slots: [
 		{
-			file: "src/core/auth/auth.ts",
+			file: "src/modules/users/services/auth.ts",
 			slot: "imports",
 			content: 'import { keycloakTokens } from "@tatara/keycloak";',
 		},
 		{
-			file: "src/core/auth/auth.ts",
+			file: "src/modules/users/services/auth.ts",
 			slot: "imports",
-			content: 'import { keycloak } from "#core/auth/keycloak";',
+			content: 'import { keycloak } from "#modules/users/services/keycloak";',
 		},
 		{
-			file: "src/core/auth/auth.ts",
+			file: "src/modules/users/services/auth.ts",
 			slot: "imports",
 			content: 'import { logger } from "#core/logging/logger";',
 		},
 		{
-			file: "src/core/auth/auth.ts",
+			file: "src/modules/users/services/auth.ts",
 			slot: "plugins",
 			unless: ["auth-orgs"],
 			content: "keycloakTokens({ verifier: keycloak, logger }),",
 			order: 800,
 		},
 		{
-			file: "src/core/auth/auth.ts",
+			file: "src/modules/users/services/auth.ts",
 			slot: "plugins",
 			when: ["auth-orgs"],
 			content: "keycloakTokens({ verifier: keycloak, logger, organizations: true }),",
 			order: 800,
 		},
 		{
-			file: "src/core/auth/principal.ts",
+			file: "src/modules/users/services/auth.ts",
 			slot: "resolvers",
-			content: '(c) => keycloakPrincipal(auth, c.req.header("authorization")),',
+			content: '(instance) => (c) => keycloakPrincipal(instance, c.req.header("authorization")),',
 		},
 		{
-			file: "src/core/auth/principal.ts",
+			file: "src/modules/users/services/auth.ts",
 			slot: "imports",
 			content: 'import { keycloakPrincipal } from "@tatara/keycloak";',
 		},
@@ -535,7 +572,7 @@ export const authKeycloak: Feature = {
 		{
 			file: "tests/helpers/auth.ts",
 			slot: "imports",
-			content: 'import { keycloak } from "#core/auth/keycloak";',
+			content: 'import { keycloak } from "#modules/users/services/keycloak";',
 		},
 		{ file: "tests/helpers/auth.ts", slot: "helpers", content: KEYCLOAK_TEST_HELPER },
 		{

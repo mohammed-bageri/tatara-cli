@@ -9,6 +9,7 @@ import {
 	success,
 	successSchema,
 } from "@tatara/http";
+import type { MiddlewareHandler } from "hono";
 import type { Authz } from "./authz.ts";
 import type { OverlayRow } from "./types.ts";
 import {
@@ -36,13 +37,20 @@ interface RouterEnv extends HttpEnv {
 export function authorizationRoutes<E extends AuthEnv = AuthEnv>(
 	// biome-ignore lint/suspicious/noExplicitAny: any app's permission keys; these routes use authz's own
 	authz: Authz<any>,
+	options: AuthorizationRoutesOptions = {},
 ): OpenAPIHono<E> {
-	return build(authz) as unknown as OpenAPIHono<E>;
+	return build(authz, options) as unknown as OpenAPIHono<E>;
+}
+
+export interface AuthorizationRoutesOptions {
+	/** runs before every route, e.g. the app's `requireOrg()` so each request names its org */
+	use?: MiddlewareHandler[];
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: permission keys are the app's; these routes use authz's own
-function build(authz: Authz<any>) {
+function build(authz: Authz<any>, options: AuthorizationRoutesOptions) {
 	const router = createRouter<RouterEnv>();
+	if (options.use?.length) router.use("*", ...options.use);
 	const tags = ["Authorization"];
 	const toOverlay = (o: OverlayRow) => ({
 		id: o.id,

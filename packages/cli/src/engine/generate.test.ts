@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Addon, AppOptions, AuthMethod } from "../features/types.ts";
-import { renderApp } from "./generate.ts";
+import { isFrameworkTest, renderApp } from "./generate.ts";
 import { validateOptions } from "./resolve.ts";
 import { hasSlots } from "./slots.ts";
 
@@ -112,12 +112,11 @@ describe("renderApp", () => {
 			addons: ADDONS,
 			packageManager: "pnpm",
 		});
-		const framework = (files: Map<string, string>) =>
-			[...files.keys()].filter((p) => /^src\/core\/.+\/tests\/[^/]+\.test\.ts$/.test(p));
+		const framework = (files: Map<string, string>) => [...files.keys()].filter(isFrameworkTest);
 		expect(framework(await renderApp(options))).toEqual([]);
 		const withTests = framework(await renderApp(options, { frameworkTests: true }));
-		expect(withTests).toContain("src/core/authz/tests/authz.test.ts");
-		expect(withTests).toContain("src/core/config/tests/env.test.ts");
+		expect(withTests).toContain("tests/tatara/authz.test.ts");
+		expect(withTests).toContain("tests/tatara/config-env.test.ts");
 		// the example module's tests stay: they show how an app tests its own code
 		expect([...(await renderApp(options)).keys()]).toContain(
 			"src/modules/example/tests/greeting.test.ts",

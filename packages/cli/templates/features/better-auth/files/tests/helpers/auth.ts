@@ -1,5 +1,5 @@
 import { createTestUser as createUser, sessionHeaders } from "@tatara/auth/testing";
-import { auth } from "#core/auth/auth";
+import { auth } from "#modules/users/services/auth";
 // tatara:slot imports
 
 export interface AsUserOptions {
@@ -24,10 +24,11 @@ export async function createTestUser(options: AsUserOptions = {}): Promise<strin
 /** A new user with a real session; the token is sent as a bearer token. */
 export async function authenticate(
 	options: AsUserOptions = {},
-): Promise<{ userId: string; headers: Record<string, string> }> {
+): Promise<{ userId: string; orgId?: string; headers: Record<string, string> }> {
 	// tatara:slot authenticate
 	const userId = await createTestUser(options);
-	return { userId, headers: await sessionHeaders(auth, userId) };
+	const headers = await sessionHeaders(auth, userId);
+	// tatara:slot authenticated
 }
 
 /** Headers that authenticate as a new user. */
