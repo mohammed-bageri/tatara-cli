@@ -52,7 +52,7 @@ For Sana's migration, later: an AI client (providers with fallback, pricing, JSO
   - `authzOrganizationHooks(authz)` gives an app the better-auth hooks (member removed → access removed) to pass in its own config.
 
 **Generated app** (Sana's layout)
-- `src/modules/user/` owns `auth.ts` (the app's better-auth options for its users, through `createAuthInstance`), delivery, `GET /me`, and the user-related permissions. Domain hooks, like MeemAin's guest merge, live there or in modules it calls.
+- `src/modules/users/` owns `auth.ts` (the app's better-auth options for its users, through `createAuthInstance`), delivery, `GET /me`, and the user-related permissions. Domain hooks, like MeemAin's guest merge, live there or in modules it calls.
 - With the admin add-on, `src/modules/staff/` owns a second instance for internal staff:
   - its own better-auth options, tables (`staff_users`, `staff_sessions` and so on, through better-auth's model names) and dev-admin seed;
   - its own `/api/auth` mount on the admin app;
@@ -71,7 +71,7 @@ Decided in conversation:
 - no lock-in.
 
 Decided after:
-- `user` plus optional `staff` modules (Sana's layout);
+- `users` plus optional `staff` modules (Sana's layout, with plural module names like every other module);
 - contracts generated from OpenAPI;
 - Redis-first default drivers;
 - a Kafka driver in step 4.
