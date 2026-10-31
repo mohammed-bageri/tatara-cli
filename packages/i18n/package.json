@@ -1,0 +1,42 @@
+{
+	"name": "@tatara/i18n",
+	"version": "0.1.0",
+	"description": "tatara i18n: dictionaries, t() and language detection for Hono",
+	"type": "module",
+	"license": "MIT",
+	"sideEffects": false,
+	"exports": {
+		".": {
+			"types": "./dist/index.d.mts",
+			"import": "./dist/index.mjs"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"engines": {
+		"node": ">=24"
+	},
+	"scripts": {
+		"build": "tsdown",
+		"typecheck": "tsc --noEmit"
+	},
+	"peerDependencies": {
+		"hono": "^4.13.13"
+	},
+	"devDependencies": {
+		"hono": "^4.13.13"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/mohammed-bageri/tatara-cli.git",
+		"directory": "packages/i18n"
+	},
+	"homepage": "https://github.com/mohammed-bageri/tatara-cli#readme",
+	"bugs": {
+		"url": "https://github.com/mohammed-bageri/tatara-cli/issues"
+	}
+}
