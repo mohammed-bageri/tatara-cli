@@ -232,6 +232,9 @@ importers:
       '@tatara/core':
         specifier: workspace:^
         version: link:../core
+      '@types/pg':
+        specifier: 8.23.1
+        version: 8.23.1
       bullmq:
         specifier: ^6.3.15
         version: 6.5.1(ioredis@6.0.0)(pg@8.23.1)
@@ -241,6 +244,12 @@ importers:
       ioredis:
         specifier: ^6.0.0
         version: 6.0.0
+      kafkajs:
+        specifier: ^2.2.4
+        version: 2.2.4
+      pg:
+        specifier: ^8.23.1
+        version: 8.23.1
       pino:
         specifier: ^10.4.0
         version: 10.4.0
@@ -1382,6 +1391,10 @@ packages:
 
   jsonc-parser@3.3.1:
     resolution: {integrity: sha512-HUgH65KyejrUFPvHFPbqOY0rsFip3Bo5wb4ngvdi1EpCYWUQDC5V+Y7mZws+DLkr4M//zQJoanu1SP+87Dv1oQ==}
+
+  kafkajs@2.2.4:
+    resolution: {integrity: sha512-j/YeapB1vfPT2iOIUn/vxdyKEuhuY2PxMBvf5JWux6iSaukAccrMtXEY/Lb7OvavDhOWME589bpLrEdnVHjfjA==}
+    engines: {node: '>=14.0.0'}
 
   kysely@0.29.7:
     resolution: {integrity: sha512-fmIq+7kv4WbFm2tcfznRzikqB4cuNpgZ40PSU2fAJ2/OO5XhojqnTPrmgrCjYSRJVwBln03XcRXJGnw9H099IQ==}
@@ -2763,6 +2776,8 @@ snapshots:
   jose@6.2.14: {}
 
   jsonc-parser@3.3.1: {}
+
+  kafkajs@2.2.4: {}
 
   kysely@0.29.7: {}
 

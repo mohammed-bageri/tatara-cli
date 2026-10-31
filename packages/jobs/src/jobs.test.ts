@@ -1,132 +1,315 @@
+import { randomUUID } from "node:crypto";
+import { Redis } from "ioredis";
+import { Kafka, logLevel } from "kafkajs";
+import pg from "pg";
 import { pino } from "pino";
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { z } from "zod";
+import { bullmqDriver } from "./bullmq.ts";
 import {
-	createQueue,
+	createJobs,
 	defineConsumer,
+	defineSchedule,
+	InvalidPayloadError,
+	inlineDriver,
+	type JobDriver,
 	processJob,
-	startCron,
+	runSchedule,
+	type ScheduleLock,
+	startWorker,
+	type TopicsOf,
+	triggerSchedule,
 	UnknownTopicError,
-	withLock,
 } from "./index.ts";
-
-const add = vi.fn(async () => ({ id: "job-1" }));
-vi.mock("bullmq", () => ({
-	Queue: vi.fn(function Queue() {
-		return { add, close: vi.fn() };
-	}),
-	Worker: vi.fn(),
-}));
+import { kafkaDriver } from "./kafka.ts";
+import { postgresDriver } from "./postgres.ts";
 
 const logger = pino({ level: "silent" });
-const ctx = { logger, jobId: "t", attempt: 1 };
-const handled: string[] = [];
-const consumers = [
-	defineConsumer({
-		topic: "example.send-welcome",
-		description: "",
-		schema: z.object({ name: z.string().min(1) }),
-		async handle({ name }) {
-			handled.push(name);
-		},
-	}),
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function until(check: () => boolean, ms = 15_000) {
+	const end = Date.now() + ms;
+	while (!check()) {
+		if (Date.now() > end) throw new Error("timed out waiting");
+		await wait(20);
+	}
+}
+
+/** A fresh set of consumers that record what they saw. */
+function consumers() {
+	const seen: { topic: string; data: unknown; orgId: string | null; attempt: number }[] = [];
+	const deadLetters: { data: unknown; error: string }[] = [];
+	const flaky = { failuresLeft: 0 };
+	const list = [
+		defineConsumer({
+			topic: "notes.created",
+			description: "records the note",
+			schema: z.object({ noteId: z.string() }),
+			async handle(data, ctx) {
+				seen.push({ topic: "notes.created", data, orgId: ctx.orgId, attempt: ctx.attempt });
+			},
+		}),
+		defineConsumer({
+			topic: "notes.flaky",
+			description: "fails a few times first",
+			schema: z.object({ n: z.number() }),
+			attempts: 3,
+			backoffMs: 10,
+			async handle(data, ctx) {
+				if (flaky.failuresLeft-- > 0) throw new Error(`boom ${ctx.attempt}`);
+				seen.push({ topic: "notes.flaky", data, orgId: ctx.orgId, attempt: ctx.attempt });
+			},
+			async onDeadLetter(data, ctx) {
+				deadLetters.push({ data, error: String(ctx.error) });
+			},
+		}),
+	] as const;
+	return { list, seen, deadLetters, flaky };
+}
+
+const closers: (() => Promise<unknown>)[] = [];
+afterAll(async () => {
+	for (const close of closers.reverse()) await close().catch(() => {});
+}, 60_000);
+
+const REDIS_URL = process.env.TATARA_TEST_REDIS_URL;
+const DATABASE_URL = process.env.TATARA_TEST_DATABASE_URL;
+const KAFKA_BROKERS = process.env.TATARA_TEST_KAFKA_BROKERS;
+
+let pool: pg.Pool | undefined;
+const pgPool = () => {
+	pool ??= new pg.Pool({ connectionString: DATABASE_URL, max: 8 });
+	closers.push(async () => {
+		await pool?.end();
+		pool = undefined;
+	});
+	return pool;
+};
+
+type Make = (c: ReturnType<typeof consumers>["list"]) => JobDriver;
+const drivers: [string, Make | undefined][] = [
+	["inline", (list) => inlineDriver({ consumers: list, logger })],
+	[
+		"bullmq",
+		REDIS_URL
+			? () => {
+					const redis = new Redis(REDIS_URL, { maxRetriesPerRequest: null });
+					closers.push(() => redis.quit());
+					return bullmqDriver({
+						name: `t-${randomUUID()}`,
+						prefix: "tatara-test",
+						redis: () => redis,
+					});
+				}
+			: undefined,
+	],
+	["postgres", DATABASE_URL ? () => postgresDriver({ db: pgPool(), pollMs: 50 }) : undefined],
+	[
+		"kafka",
+		KAFKA_BROKERS
+			? () =>
+					kafkaDriver({
+						kafka: new Kafka({ brokers: KAFKA_BROKERS.split(","), logLevel: logLevel.NOTHING }),
+						topic: `t-${randomUUID()}`,
+						groupId: `g-${randomUUID()}`,
+					})
+			: undefined,
+	],
 ];
 
-/** set NX PX / compare-and-delete, as Redis does them. */
-function fakeRedis() {
-	const keys = new Map<string, string>();
+for (const [name, make] of drivers) {
+	// a Kafka consumer takes seconds to join its group
+	describe.skipIf(!make)(`the ${name} driver`, { timeout: 60_000 }, () => {
+		async function started() {
+			const c = consumers();
+			const driver = (make as Make)(c.list);
+			const stop = await startWorker({ driver, consumers: c.list, concurrency: 4, logger });
+			// a worker left running would take the next test's jobs from a shared table
+			onTestFinished(stop);
+			return { ...c, jobs: createJobs({ driver, consumers: c.list }) };
+		}
+
+		it("delivers a job with its payload and org", async () => {
+			const { jobs, seen } = await started();
+			await jobs.enqueue("notes.created", { noteId: "n1" }, { orgId: "org-1" });
+			await until(() => seen.length === 1);
+			expect(seen[0]).toEqual({
+				topic: "notes.created",
+				data: { noteId: "n1" },
+				orgId: "org-1",
+				attempt: 1,
+			});
+		});
+
+		it("retries a failing job, then runs it", async () => {
+			const { jobs, seen, flaky, deadLetters } = await started();
+			flaky.failuresLeft = 2;
+			await jobs.enqueue("notes.flaky", { n: 1 });
+			await until(() => seen.length === 1);
+			expect(seen[0]?.attempt).toBe(3);
+			expect(deadLetters).toEqual([]);
+		});
+
+		it("calls onDeadLetter once, after the last attempt", async () => {
+			const { jobs, flaky, deadLetters, seen } = await started();
+			flaky.failuresLeft = 99;
+			await jobs.enqueue("notes.flaky", { n: 2 });
+			await until(() => deadLetters.length === 1);
+			await wait(200);
+			expect(deadLetters).toEqual([{ data: { n: 2 }, error: "Error: boom 3" }]);
+			expect(seen).toEqual([]);
+		});
+
+		it("waits out a delay", async () => {
+			const { jobs, seen } = await started();
+			const sent = Date.now();
+			await jobs.enqueue("notes.created", { noteId: "later" }, { delayMs: 300 });
+			await until(() => seen.length === 1);
+			expect(Date.now() - sent).toBeGreaterThanOrEqual(290);
+		});
+	});
+}
+
+describe.skipIf(!DATABASE_URL)("the postgres driver as an outbox", { timeout: 30_000 }, () => {
+	it("stores a job only when the caller's transaction commits", async () => {
+		const c = consumers();
+		const driver = postgresDriver({ db: pgPool(), pollMs: 50 });
+		const jobs = createJobs({ driver, consumers: c.list });
+		const stop = await startWorker({ driver, consumers: c.list, concurrency: 2, logger });
+		onTestFinished(stop);
+		const client = await pgPool().connect();
+		try {
+			await client.query("begin");
+			await jobs.enqueue("notes.created", { noteId: "rolled-back" }, { executor: client });
+			await client.query("rollback");
+			await client.query("begin");
+			await jobs.enqueue("notes.created", { noteId: "committed" }, { executor: client });
+			await client.query("commit");
+		} finally {
+			client.release();
+		}
+		await until(() => c.seen.length === 1);
+		await wait(300);
+		expect(c.seen.map((s) => s.data)).toEqual([{ noteId: "committed" }]);
+	});
+});
+
+describe("createJobs", () => {
+	it("rejects a payload or topic its consumers would, before storing anything", async () => {
+		const c = consumers();
+		const driver = inlineDriver({ consumers: c.list, logger });
+		const send = vi.spyOn(driver, "send");
+		const jobs = createJobs({ driver, consumers: c.list });
+		await expect(jobs.enqueue("notes.created", { noteId: 1 } as never)).rejects.toThrow(
+			InvalidPayloadError,
+		);
+		await expect(jobs.enqueue("nope" as never, {} as never)).rejects.toThrow(UnknownTopicError);
+		expect(send).not.toHaveBeenCalled();
+	});
+
+	it("types enqueue by the consumers' topics and payloads", async () => {
+		const c = consumers();
+		const jobs = createJobs<TopicsOf<typeof c.list>>({
+			driver: inlineDriver({ consumers: c.list, logger }),
+		});
+		await jobs.enqueue("notes.created", { noteId: "typed" });
+		// @ts-expect-error: noteId is a string
+		await jobs.enqueue("notes.created", { noteId: 1 }).catch(() => {});
+		// @ts-expect-error: no consumer has this topic
+		await jobs.enqueue("notes.deleted", {}).catch(() => {});
+	});
+
+	it("dead-letters a stored job whose payload no longer validates, without retrying", async () => {
+		const c = consumers();
+		const driver = inlineDriver({ consumers: c.list, logger });
+		await driver.send([
+			{
+				job: {
+					id: "j1",
+					topic: "notes.flaky",
+					data: { n: "x" },
+					orgId: null,
+					attempt: 1,
+					maxAttempts: 3,
+					enqueuedAt: new Date().toISOString(),
+				},
+				delayMs: 0,
+			},
+		]);
+		await driver.drain();
+		expect(c.deadLetters).toHaveLength(1);
+		expect(driver.dead.map((j) => j.attempt)).toEqual([1]);
+	});
+
+	it("keeps processJob for tests that call a consumer directly", async () => {
+		const c = consumers();
+		await processJob(c.list, "notes.created", { noteId: "x" }, { logger, jobId: "t", attempt: 1 });
+		expect(c.seen).toHaveLength(1);
+		await expect(
+			processJob(c.list, "notes.created", {}, { logger, jobId: "t", attempt: 1 }),
+		).rejects.toThrow(/Invalid payload/);
+	});
+});
+
+function memoryLock(): ScheduleLock {
+	const held = new Set<string>();
 	return {
-		keys,
-		async set(key: string, value: string, ..._rest: unknown[]) {
-			if (keys.has(key)) return null;
-			keys.set(key, value);
-			return "OK" as const;
-		},
-		async eval(_script: string, _n: number, key: string, token: string) {
-			if (keys.get(key) !== token) return 0;
-			keys.delete(key);
-			return 1;
+		async lock(key, _ttl, fn) {
+			if (held.has(key)) return { acquired: false };
+			held.add(key);
+			// a tick's lock is never released early: a second trigger for it must not run again
+			return { acquired: true, value: await fn() };
 		},
 	};
 }
 
-describe("processJob", () => {
-	it("runs the consumer for a topic with a valid payload", async () => {
-		await processJob(consumers, "example.send-welcome", { name: "Ada" }, ctx);
-		expect(handled).toContain("Ada");
-	});
-
-	it("rejects an invalid payload and an unknown topic", async () => {
-		await expect(processJob(consumers, "example.send-welcome", { name: "" }, ctx)).rejects.toThrow(
-			/Invalid payload/,
+describe("schedules", () => {
+	it("runs a tick once however many processes fire it", async () => {
+		const run = vi.fn(async () => {});
+		const schedule = defineSchedule({ name: "nightly", cron: "0 0 * * *", run });
+		const lock = memoryLock();
+		const tick = new Date("2026-11-01T00:00:00Z");
+		const results = await Promise.all(
+			[1, 2, 3].map(() => runSchedule(schedule, tick, { lock, logger })),
 		);
-		await expect(processJob(consumers, "nope", {}, ctx)).rejects.toBeInstanceOf(UnknownTopicError);
-	});
-});
-
-describe("withLock", () => {
-	it("lets only one holder run a locked section, and releases it after", async () => {
-		const redis = fakeRedis();
-		let inner: boolean | undefined;
-		const outer = await withLock(redis as never, "k", 5000, async () => {
-			inner = await withLock(redis as never, "k", 5000, async () => {});
-		});
-		expect(outer).toBe(true);
-		expect(inner).toBe(false);
-		expect(redis.keys.size).toBe(0);
+		expect(results.filter(Boolean)).toHaveLength(1);
+		expect(run).toHaveBeenCalledTimes(1);
 	});
 
-	it("releases the lock when the section throws", async () => {
-		const redis = fakeRedis();
-		await expect(
-			withLock(redis as never, "k", 5000, async () => {
-				throw new Error("boom");
-			}),
-		).rejects.toThrow("boom");
-		expect(redis.keys.size).toBe(0);
-	});
-});
-
-describe("createQueue", () => {
-	it("opens the queue lazily and applies the default retry policy", async () => {
-		const { Queue } = await import("bullmq");
-		const redis = vi.fn(() => ({}) as never);
-		const queue = createQueue({ name: "app-jobs", prefix: "p", redis });
-		expect(Queue).not.toHaveBeenCalled();
-		expect(await queue.enqueue("t", { a: 1 }, { attempts: 5 })).toBe("job-1");
-		expect(Queue).toHaveBeenCalledWith("app-jobs", { connection: {}, prefix: "p" });
-		expect(add).toHaveBeenCalledWith(
-			"t",
-			{ a: 1 },
-			expect.objectContaining({ attempts: 5, removeOnFail: 5000 }),
-		);
-	});
-});
-
-describe("startCron", () => {
-	it.each([
-		["runs a schedule on its tick", false, 1],
-		["skips the tick another process holds", true, 0],
-	])("%s", async (_label, held, expected) => {
-		vi.useFakeTimers();
-		const redis = fakeRedis();
-		if (held) redis.set = async () => null;
-		let runs = 0;
-		let connected = 0;
-		const jobs = startCron({
-			schedules: [{ name: `s-${expected}`, cron: "* * * * * *", run: async () => void runs++ }],
-			redis: () => {
-				connected++;
-				return redis as never;
+	it("visits every org, and one failing doesn't stop the rest", async () => {
+		const visited: string[] = [];
+		let result: unknown;
+		const schedule = defineSchedule({
+			name: "per-org",
+			cron: "* * * * *",
+			async run({ forEachOrg }) {
+				result = await forEachOrg(async (orgId) => {
+					if (orgId === "b") throw new Error("bad org");
+					visited.push(orgId);
+				});
 			},
-			logger,
 		});
-		// no connection until a schedule is due
-		expect(connected).toBe(0);
-		await vi.advanceTimersByTimeAsync(1000);
-		for (const job of jobs) job.stop();
-		vi.useRealTimers();
-		expect(runs).toBe(expected);
-		expect(redis.keys.size).toBe(0);
+		async function* orgs() {
+			yield* ["a", "b", "c"];
+		}
+		await runSchedule(schedule, new Date(), { lock: memoryLock(), logger, orgs });
+		expect(visited).toEqual(["a", "c"]);
+		expect(result).toEqual({ done: 2, failed: ["b"] });
+	});
+
+	it("triggers from outside only with the secret", async () => {
+		const run = vi.fn(async () => {});
+		const options = {
+			schedules: [defineSchedule({ name: "report", cron: "0 * * * *", run })],
+			lock: memoryLock(),
+			logger,
+			secret: "s3cret-s3cret",
+		};
+		expect((await triggerSchedule("report", undefined, options)).status).toBe(401);
+		expect((await triggerSchedule("report", "Bearer wrong", options)).status).toBe(401);
+		expect((await triggerSchedule("missing", "Bearer s3cret-s3cret", options)).status).toBe(404);
+		const ok = await triggerSchedule("report", "Bearer s3cret-s3cret", options);
+		expect(ok).toEqual({ status: 200, body: { ran: true } });
+		expect(run).toHaveBeenCalledTimes(1);
 	});
 });

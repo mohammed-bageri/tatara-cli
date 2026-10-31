@@ -442,6 +442,19 @@ async function smoke(s: Scenario, dir: string, logDir: string): Promise<string[]
 				readFileSync(join(logDir, "cron.log"), "utf8").includes("cron started"),
 				"cron did not start",
 			);
+			// a platform scheduler's way in: the same schedule, under the same lock
+			const scheduled = await run(
+				"node",
+				[
+					"--env-file=.env",
+					"dist/apps/cli/index.mjs",
+					"schedule:run",
+					"--name",
+					"example.heartbeat",
+				],
+				{ cwd: dir },
+			);
+			expect(scheduled.code === 0, `schedule:run: ${scheduled.out.slice(-300)}`);
 			notes.push("jobs");
 		}
 	} finally {
