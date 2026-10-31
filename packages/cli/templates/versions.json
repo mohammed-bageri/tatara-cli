@@ -42,5 +42,6 @@
   "@tatara/email": "0.2.0",
   "@tatara/i18n": "0.1.0",
   "@tatara/jobs": "0.2.0",
-  "@tatara/cache": "0.0.0"
+  "@tatara/cache": "0.0.0",
+  "openapi-typescript": "7.13.0"
 }

@@ -77,3 +77,18 @@ export class ConflictError extends AppError {
 		super(409, "CONFLICT", message ?? "Resource already exists", details, message === undefined);
 	}
 }
+
+export class TooManyRequestsError extends AppError {
+	/** seconds until the caller may try again, sent as Retry-After */
+	readonly retryAfterSeconds: number;
+	constructor(retryAfterSeconds: number) {
+		super(429, "RATE_LIMITED", "Too many requests, try again later", undefined, true);
+		this.retryAfterSeconds = retryAfterSeconds;
+	}
+}
+
+export class RequestTimeoutError extends AppError {
+	constructor() {
+		super(504, "REQUEST_TIMEOUT", "The request took too long", undefined, true);
+	}
+}

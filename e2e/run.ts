@@ -576,6 +576,20 @@ async function runScenario(
 			if (failed.length) throw new Error(`doctor: ${JSON.stringify(failed)}`);
 			return `${routes.length} routes`;
 		})) &&
+		(await step("contracts", async () => {
+			await sh(tatara, ["contracts"], "contracts");
+			const types = readFileSync(join(dir, "contracts/api.ts"), "utf8");
+			if (!types.includes('"/api/me"') && !types.includes('"/api/greetings"'))
+				throw new Error("contracts/api.ts lacks the app's paths");
+			await sh(tatara, ["contracts", "--check"], "contracts-check");
+			writeFileSync(join(dir, "contracts/api.ts"), "// stale\n");
+			const caught = await sh(tatara, ["contracts", "--check"], "contracts-stale").then(
+				() => false,
+				() => true,
+			);
+			if (!caught) throw new Error("contracts --check passed on a stale file");
+			await sh(tatara, ["contracts"], "contracts");
+		})) &&
 		(await step("generators", async () => {
 			const made: string[] = [];
 			for (const g of GENERATORS) {

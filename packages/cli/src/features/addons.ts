@@ -189,6 +189,8 @@ export const cache: Feature = {
   and \`lock(key, ttlMs, fn)\` (one holder across processes).
 - Scope keys with \`orgKey(orgId, …)\` / \`userKey(userId, …)\` from \`@tatara/cache\`, and drop them all
   with \`cache.delPrefix(orgKey(orgId))\`.
+- Rate-limit a route with \`middleware: [limitRequests({ name, windowMs, max })]\` from
+  \`#core/http/rate-limit\` (per caller IP, or per \`key\`); past the limit it answers 429 RATE_LIMITED.
 - \`CACHE_DRIVER\` picks the store (Redis by default; tests use memory). Values must be JSON.
 `,
 		},
@@ -250,7 +252,7 @@ export const admin: Feature = {
 			slot: "routes",
 			order: 2,
 			content:
-				'if (name === "admin") app.on(["GET", "POST"], `${API_PREFIX}/auth/*`, (c) => staffAuth.handler(c.req.raw));',
+				'if (name === "admin") app.on(["GET", "POST"], `${API_PREFIX}/auth/*`, (c) =>\n\tstaffAuth.handler(withClientIp(c.req.raw, clientIp(c, { trustedHops: env.TRUSTED_PROXY_HOPS }))),\n);',
 		},
 		{
 			// every other admin /api route needs a staff principal
