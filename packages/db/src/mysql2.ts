@@ -47,7 +47,8 @@ export async function truncateAllTables(url: string): Promise<void> {
 		const names = (await tables(c)).filter((t) => !MIGRATION_TABLES.includes(t));
 		if (names.length === 0) return;
 		await c.query(
-			`set foreign_key_checks = 0; ${names.map((t) => `truncate table \`${t}\`;`).join(" ")} set foreign_key_checks = 1;`,
+			// delete, not truncate: MySQL runs truncate as DDL (~300ms a table), too slow per test
+			`set foreign_key_checks = 0; ${names.map((t) => `delete from \`${t}\`;`).join(" ")} set foreign_key_checks = 1;`,
 		);
 	});
 }
