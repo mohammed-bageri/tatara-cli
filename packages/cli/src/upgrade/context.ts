@@ -33,6 +33,8 @@ export interface UpgradeContext {
 	addDependency(name: string, range: string, opts?: { dev?: boolean }): Promise<void>;
 	/** What this CLI version generates at `path` for the app's options (undefined if nothing). */
 	renderCurrent(path: string): Promise<string | undefined>;
+	/** Writes what this CLI generates at `path`; when it generates nothing there, removes the file if unchanged. */
+	regenerate(path: string): Promise<"written" | "removed" | "kept" | "missing">;
 }
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -68,7 +70,7 @@ export function createContext(
 		await writeFile(abs(path), text);
 	};
 
-	return {
+	const ctx: UpgradeContext = {
 		project,
 		baseline,
 		report,
@@ -111,6 +113,12 @@ export function createContext(
 			rendered ??= renderApp({ name, orm, database, auth, authMethods, addons, packageManager });
 			return (await rendered).get(path);
 		},
+		async regenerate(path) {
+			const next = await ctx.renderCurrent(path);
+			if (next === undefined) return ctx.removeIfUnchanged(path);
+			await write(path, next);
+			return "written";
+		},
 		async addDependency(name, range, { dev = false } = {}) {
 			if (ejected.includes(name.replace(/^@tatara\//, ""))) {
 				const note = `${name} is ejected; it was not added (its code is in src/ejected)`;
@@ -126,4 +134,5 @@ export function createContext(
 			await write("package.json", `${JSON.stringify(pkg, null, "\t")}\n`);
 		},
 	};
+	return ctx;
 }

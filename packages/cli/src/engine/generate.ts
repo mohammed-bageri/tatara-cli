@@ -231,6 +231,13 @@ export function pnpmWorkspace(features: Feature[]): string {
 
 export interface GenerateOptions {
 	pmVersion?: string;
+	/** include tatara's own tests of its wiring (the tests folders under src/core); e2e runs them */
+	frameworkTests?: boolean;
+}
+
+/** Tests of tatara's wiring, not of the app; generated apps leave them out. */
+export function isFrameworkTest(path: string): boolean {
+	return /^src\/core\/.+\/tests\/[^/]+\.test\.ts$/.test(path);
 }
 
 /** Folds applicable variants into each feature so later steps see one flat definition. */
@@ -263,6 +270,8 @@ export async function renderApp(
 	const selected = new Set(features.map((f) => f.id));
 	const tokenValues = tokens(options);
 	const files = await collectTemplateFiles(features, selected);
+	if (!generate.frameworkTests)
+		for (const path of files.keys()) if (isFrameworkTest(path)) files.delete(path);
 
 	const env = dedupeEnv(features, tokenValues);
 	files.set("src/core/config/env.ts", envModule(env.filter((v) => !v.composeOnly)));

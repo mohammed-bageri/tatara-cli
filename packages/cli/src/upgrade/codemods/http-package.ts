@@ -91,8 +91,7 @@ export const httpPackage: Codemod = {
 		}
 
 		for (const path of replace) {
-			const next = await ctx.renderCurrent(path);
-			if (next !== undefined) await ctx.write(path, next);
+			await ctx.regenerate(path);
 		}
 		for (const entry of present) await ctx.removeIfUnchanged(entry.path);
 		// errors, the envelope and the validation hook keep their names in the package

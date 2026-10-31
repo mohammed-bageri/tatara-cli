@@ -102,6 +102,28 @@ describe("renderApp", () => {
 		expect([...files.keys()].sort()).toMatchSnapshot();
 	});
 
+	it("leaves tatara's own framework tests out unless asked (e2e asks)", async () => {
+		const options = validateOptions({
+			name: "app",
+			orm: "drizzle",
+			database: "postgres",
+			auth: "better-auth",
+			authMethods: METHODS,
+			addons: ADDONS,
+			packageManager: "pnpm",
+		});
+		const framework = (files: Map<string, string>) =>
+			[...files.keys()].filter((p) => /^src\/core\/.+\/tests\/[^/]+\.test\.ts$/.test(p));
+		expect(framework(await renderApp(options))).toEqual([]);
+		const withTests = framework(await renderApp(options, { frameworkTests: true }));
+		expect(withTests).toContain("src/core/authz/tests/authz.test.ts");
+		expect(withTests).toContain("src/core/config/tests/env.test.ts");
+		// the example module's tests stay: they show how an app tests its own code
+		expect([...(await renderApp(options)).keys()]).toContain(
+			"src/modules/example/tests/greeting.test.ts",
+		);
+	});
+
 	it("produces the expected file set for a minimal app", async () => {
 		const files = await renderApp(
 			validateOptions({

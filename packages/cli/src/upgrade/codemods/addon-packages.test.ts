@@ -85,7 +85,9 @@ describe("0.7.0 addon-packages codemod", () => {
 	it("moves every add-on the app has onto its package", async () => {
 		const project = app();
 		const report = await run(project);
-		expect(report.removed).toHaveLength(8);
+		// 8 copies, plus the storage framework test this CLI no longer puts in apps
+		expect(report.removed).toHaveLength(9);
+		expect(report.removed).toContain("src/core/storage/tests/storage.test.ts");
 		for (const name of ["storage", "email", "i18n", "jobs"])
 			expect(deps(project)[`@tatara/${name}`]).toMatch(/^\^0\./);
 		expect(read(project, "src/core/storage/index.ts")).toContain("s3Storage({ client: s3");

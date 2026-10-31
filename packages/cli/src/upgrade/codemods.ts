@@ -3,6 +3,7 @@ import { authPackage } from "./codemods/auth-package.ts";
 import { authzPackage } from "./codemods/authz-package.ts";
 import { corePackage } from "./codemods/core-package.ts";
 import { dbTesting } from "./codemods/db-testing.ts";
+import { frameworkTests } from "./codemods/framework-tests.ts";
 import { httpPackage } from "./codemods/http-package.ts";
 import type { UpgradeContext } from "./context.ts";
 
@@ -26,4 +27,5 @@ export const CODEMODS: readonly Codemod[] = [
 	authPackage,
 	authzPackage,
 	addonPackages,
+	frameworkTests,
 ];

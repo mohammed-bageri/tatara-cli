@@ -41,6 +41,11 @@
 			},
 			"required": ["cli", "files"],
 			"additionalProperties": false
+		},
+		"ejected": {
+			"description": "Written by tatara eject: each package copied into src/ejected, with the version it was ejected at. tatara upgrade leaves these alone.",
+			"type": "object",
+			"additionalProperties": { "type": "string" }
 		}
 	},
 	"additionalProperties": false

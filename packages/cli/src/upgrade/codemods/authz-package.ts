@@ -123,8 +123,7 @@ export const authzPackage: Codemod = {
 		}
 
 		for (const path of regenerate) {
-			const next = await ctx.renderCurrent(path);
-			if (next !== undefined) await ctx.write(path, next);
+			await ctx.regenerate(path);
 		}
 		for (const path of removed) await ctx.removeIfUnchanged(path);
 		for (const move of MOVES) await ctx.rewriteImports(move.from, move.to);

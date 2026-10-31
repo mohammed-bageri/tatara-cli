@@ -95,7 +95,9 @@ describe("0.6.0 authz-package codemod", () => {
 	it("adds @tatara/authz, removes the copies and writes the app's createAuthz", async () => {
 		const project = app();
 		const report = await run(project);
-		expect(report.removed).toHaveLength(13);
+		// 13 copies, plus the framework test this CLI no longer puts in apps
+		expect(report.removed).toHaveLength(14);
+		expect(report.removed).toContain(`${D}/tests/authz.test.ts`);
 		expect(exists(project, `${D}/resolver.ts`)).toBe(false);
 		expect(read(project, `${D}/index.ts`)).toContain("createAuthz<PermissionKey>(");
 		expect(read(project, `${D}/routes/authorization.routes.ts`)).toContain(

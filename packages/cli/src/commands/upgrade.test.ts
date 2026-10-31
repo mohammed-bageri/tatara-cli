@@ -218,6 +218,24 @@ describe("upgrade", () => {
 		expect(report.notes.join("\n")).toContain("@tatara/http is ejected");
 	});
 
+	it("regenerate removes an unchanged file this CLI no longer generates", async () => {
+		const project = fixture();
+		const report = await upgrade(project, {
+			...deps(project),
+			codemods: [
+				{
+					version: "0.1.4",
+					id: "regen",
+					description: "",
+					run: async (ctx) => {
+						expect(await ctx.regenerate("src/core/http/errors.ts")).toBe("removed");
+					},
+				},
+			],
+		});
+		expect(report.removed).toEqual(["src/core/http/errors.ts"]);
+	});
+
 	it("keeps the old version when a codemod fails", async () => {
 		const project = fixture();
 		const run = upgrade(project, {

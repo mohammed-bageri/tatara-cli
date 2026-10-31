@@ -464,7 +464,16 @@ async function runScenario(
 		(await step("new", async () => {
 			const res = await run(
 				"node",
-				[join(CLI, "dist/bin.mjs"), "new", dir, ...s.flags, "--yes", "--no-git"],
+				// --framework-tests: tatara's own wiring tests run in every scenario, not in real apps
+				[
+					join(CLI, "dist/bin.mjs"),
+					"new",
+					dir,
+					...s.flags,
+					"--yes",
+					"--no-git",
+					"--framework-tests",
+				],
 				{
 					cwd: RUNS,
 					env: {

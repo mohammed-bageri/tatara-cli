@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { Command } from "commander";
+import { Command, Option } from "commander";
 import pc from "picocolors";
 import { runAppCli } from "./commands/app-cli.ts";
 import { check } from "./commands/check.ts";
@@ -38,6 +38,7 @@ program
 	.option("-y, --yes", "skip prompts and use flags/defaults")
 	.option("--no-install", "do not install dependencies")
 	.option("--no-git", "do not initialise git")
+	.addOption(new Option("--framework-tests", "include tatara's own wiring tests (e2e)").hideHelp())
 	.action(async (dir, flags) => {
 		await newApp(dir, flags);
 	});

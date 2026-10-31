@@ -63,8 +63,7 @@ export async function blockersOf(
 
 export async function applyGroup(ctx: UpgradeContext, group: Group): Promise<void> {
 	for (const path of group.regenerate) {
-		const next = await ctx.renderCurrent(path);
-		if (next !== undefined) await ctx.write(path, next);
+		await ctx.regenerate(path);
 	}
 	for (const path of group.remove) await ctx.removeIfUnchanged(path);
 	for (const rewrite of group.rewrites) await ctx.rewriteImports(rewrite.from, rewrite.to);

@@ -148,8 +148,7 @@ export const authPackage: Codemod = {
 		for (const group of ready) {
 			for (const path of group.regenerate) {
 				if ((await read(ctx, path)) === undefined) continue;
-				const next = await ctx.renderCurrent(path);
-				if (next !== undefined) await ctx.write(path, next);
+				await ctx.regenerate(path);
 			}
 			for (const path of group.remove) await ctx.removeIfUnchanged(path);
 		}

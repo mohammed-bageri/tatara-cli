@@ -32,6 +32,8 @@ export interface NewFlags {
 	yes?: boolean;
 	install?: boolean;
 	git?: boolean;
+	/** tatara's own e2e: also write its framework tests into the app */
+	frameworkTests?: boolean;
 }
 
 const ORMS = ["drizzle", "prisma", "none"] as const;
@@ -242,7 +244,10 @@ export async function newApp(dir: string | undefined, rawFlags: NewFlags): Promi
 	const options = validateOptions(interactive ? await prompt(name, flags) : fromFlags(name, flags));
 	const pm = pmCommands(options.packageManager);
 
-	const files = await renderApp(options, { pmVersion: await pmVersion(options.packageManager) });
+	const files = await renderApp(options, {
+		pmVersion: await pmVersion(options.packageManager),
+		frameworkTests: flags.frameworkTests,
+	});
 	await writeFiles(root, files, { env: devEnvFromExample(options) });
 	const project = loadProject(root);
 	await afterCreate(project, "files");
