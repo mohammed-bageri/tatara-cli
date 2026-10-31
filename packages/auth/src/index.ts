@@ -6,6 +6,11 @@ export {
 	type OutboxMessage,
 	type SmsSender,
 } from "./delivery.ts";
+export {
+	type AuthInstanceOptions,
+	createAuthInstance,
+	OrgRequiredError,
+} from "./instance.ts";
 export { mergeAuthOpenApi, type OpenApiAuth } from "./openapi.ts";
 export {
 	type AuthEnv,

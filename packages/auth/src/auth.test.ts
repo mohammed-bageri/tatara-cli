@@ -41,7 +41,14 @@ interface Env extends HttpEnv {
 	Variables: HttpEnv["Variables"] & AuthEnv["Variables"];
 }
 
-const service: Principal = { userId: "svc", orgId: null, roles: [], kind: "service", claims: {} };
+const service: Principal = {
+	userId: "svc",
+	orgId: null,
+	orgRole: null,
+	roles: [],
+	kind: "service",
+	claims: {},
+};
 
 function app() {
 	const app = createApp<Env>({
@@ -71,6 +78,7 @@ describe("principalMiddleware + sessionPrincipal", () => {
 		expect(await res.json()).toEqual({
 			userId,
 			orgId: null,
+			orgRole: null,
 			roles: ["admin", "teacher"],
 			kind: "user",
 			claims: {},

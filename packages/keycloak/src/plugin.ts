@@ -138,6 +138,7 @@ export function keycloakTokens(options: KeycloakTokensOptions) {
 					return {
 						userId: claims.sub,
 						orgId,
+						orgRole: null,
 						roles: rolesOf(claims, verifier.audience),
 						kind: isService ? "service" : "user",
 						claims,

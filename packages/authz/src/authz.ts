@@ -1,5 +1,6 @@
 import type { Principal } from "@tatara/auth";
 import {
+	AppError,
 	BusinessRuleError,
 	ConflictError,
 	ForbiddenError,
@@ -12,7 +13,6 @@ import { createPermissionCache } from "./cache.ts";
 import { assertGrantValid, type Catalog, InvalidGrantError, META_RESOURCES } from "./catalog.ts";
 import {
 	type AuditChangeType,
-	DEFAULT_ORG_ID,
 	type OverlayEffect,
 	SCOPE_RANK,
 	type Scope,
@@ -27,7 +27,14 @@ import {
 	type RoleRow,
 } from "./types.ts";
 
-type Who = Pick<Principal, "userId" | "orgId" | "roles">;
+type Who = Pick<Principal, "userId" | "orgId" | "roles"> & { orgRole?: string | null };
+
+/** 400 ORG_REQUIRED: a permission check needs the org the caller acts in. */
+export class OrgRequiredError extends AppError {
+	constructor() {
+		super(400, "ORG_REQUIRED", "Choose an organization (x-org-id header)", undefined, true);
+	}
+}
 
 export interface SystemRole {
 	readonly key: string;
@@ -42,6 +49,11 @@ export interface AuthzOptions {
 	systemRoles: readonly SystemRole[];
 	/** how long a resolved permission set is cached in-process (default 30 s) */
 	cacheTtlMs?: number;
+	/**
+	 * Single-tenant apps: the one org every check runs in. Without it, a check with no org is a
+	 * 400 ORG_REQUIRED; nothing falls back to a default org.
+	 */
+	singleTenant?: string;
 }
 
 export interface RoleInput {
@@ -60,9 +72,10 @@ export interface OverlayInput {
 	expiresAt?: Date | null;
 }
 
-/** The org a principal acts in: its active org, or the default org. */
+/** The org a principal acts in; 400 ORG_REQUIRED when it acts in none. */
 export function orgOf(principal: Pick<Principal, "orgId">): string {
-	return principal.orgId ?? DEFAULT_ORG_ID;
+	if (!principal.orgId) throw new OrgRequiredError();
+	return principal.orgId;
 }
 
 /** Pure check against a resolved set: deny wins; scoped checks honour org > team > own. */
@@ -105,17 +118,24 @@ export function createAuthz<K extends string = string>(options: AuthzOptions) {
 			throw new Error(`Permission files grant to "${role}", which is not a built-in role`);
 	}
 	const cache = createPermissionCache(options.cacheTtlMs ?? 30_000);
+	const orgFor = (principal: Pick<Principal, "orgId">): string =>
+		principal.orgId ?? options.singleTenant ?? orgOf(principal);
 
-	/** Roles from the identity provider that match a built-in role key are honoured as that role. */
-	const impliedRoles = (principal: Pick<Principal, "roles">) =>
-		principal.roles.filter((role) => systemRoleKeys.has(role));
+	/**
+	 * Roles that match a built-in role key are honoured as that role: the identity provider's
+	 * (`roles`) and the member's role in the org it acts in (`orgRole`).
+	 */
+	const impliedRoles = (principal: Who) =>
+		[...new Set([...principal.roles, ...(principal.orgRole ? [principal.orgRole] : [])])].filter(
+			(role) => systemRoleKeys.has(role),
+		);
 
 	/**
 	 * Effective permissions = grants of the member's roles (assigned in the org, plus built-in
 	 * roles implied by the identity provider) + active grant overlays − active deny overlays.
 	 */
 	async function effectivePermissions(principal: Who): Promise<EffectivePermissions> {
-		const orgId = orgOf(principal);
+		const orgId = orgFor(principal);
 		const implied = impliedRoles(principal);
 		const cached = cache.get(orgId, principal.userId, implied);
 		if (cached) return cached;
@@ -431,7 +451,7 @@ export function createAuthz<K extends string = string>(options: AuthzOptions) {
 		store,
 		catalog,
 		systemRoleKeys,
-		orgOf,
+		orgOf: orgFor,
 		effectivePermissions,
 		checkPermission,
 		resolveScope,
@@ -455,3 +475,20 @@ export function createAuthz<K extends string = string>(options: AuthzOptions) {
 }
 
 export type Authz<K extends string = string> = ReturnType<typeof createAuthz<K>>;
+
+/**
+ * Hooks for better-auth's organization plugin, so authz rows go with the membership; spread them
+ * into the app's own `organization({ organizationHooks })`.
+ */
+export function authzOrganizationHooks(authz: Pick<Authz, "removeMemberAccess">) {
+	return {
+		// authz rows outlive better-auth's member row; without this, re-adding restores old roles
+		afterRemoveMember: async ({
+			member,
+		}: {
+			member: { organizationId: string; userId: string };
+		}) => {
+			await authz.removeMemberAccess(member.organizationId, member.userId);
+		},
+	};
+}

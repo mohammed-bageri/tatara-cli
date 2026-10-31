@@ -36,9 +36,15 @@ beforeEach(() => {
 	authz = createAuthz<Key>({ store: memoryAuthzStore(), catalog, systemRoles: SYSTEM_ROLES });
 });
 
-const who = (userId: string, roles: string[] = [], orgId: string | null = null): Principal => ({
+const who = (
+	userId: string,
+	roles: string[] = [],
+	orgId: string | null = "default",
+	orgRole: string | null = null,
+): Principal => ({
 	userId,
 	orgId,
+	orgRole,
 	roles,
 	kind: "user",
 	claims: {},
@@ -176,6 +182,47 @@ describe("createAuthz", () => {
 			effect: "grant",
 		});
 		expect(await other.checkPermission(who("u1"), "doc:publish")).toBe(false);
+	});
+});
+
+describe("tenant context", () => {
+	it("refuses a check with no org instead of falling back to a default one", async () => {
+		await expect(authz.checkPermission(who("u1", [], null), "doc:publish")).rejects.toMatchObject({
+			code: "ORG_REQUIRED",
+		});
+	});
+
+	it("uses the app's fixed org when it says it's single-tenant", async () => {
+		const single = createAuthz<Key>({
+			store: memoryAuthzStore(),
+			catalog,
+			systemRoles: SYSTEM_ROLES,
+			singleTenant: "default",
+		});
+		await single.addOverlay(null, "default", "u1", {
+			resource: "doc",
+			action: "publish",
+			effect: "grant",
+		});
+		expect(await single.checkPermission(who("u1", [], null), "doc:publish")).toBe(true);
+	});
+
+	it("honours the member's org role as a built-in role in that org", async () => {
+		await authz.syncSystemRoles();
+		expect(await authz.resolveScope(who("u1", [], "org-a", "admin"), "doc:read")).toBe("org");
+		expect(await authz.resolveScope(who("u1", [], "org-a", "nobody"), "doc:read")).toBeNull();
+	});
+
+	it("removes a member's access through the organization hooks it gives better-auth", async () => {
+		const { authzOrganizationHooks } = await import("./index.ts");
+		await authz.addOverlay(null, "org-a", "u1", {
+			resource: "doc",
+			action: "publish",
+			effect: "grant",
+		});
+		const hooks = authzOrganizationHooks(authz);
+		await hooks.afterRemoveMember({ member: { organizationId: "org-a", userId: "u1" } });
+		expect(await authz.checkPermission(who("u1", [], "org-a"), "doc:publish")).toBe(false);
 	});
 });
 
