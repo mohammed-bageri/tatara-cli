@@ -26,6 +26,7 @@ interface Row {
 	attempt: number;
 	max_attempts: number;
 	enqueued_at: Date | string;
+	claim_token: string;
 }
 
 const toJob = (row: Row): JobEnvelope => ({
@@ -62,9 +63,11 @@ export function postgresDriver(options: PostgresDriverOptions): JobDriver {
 					enqueued_at timestamptz not null,
 					run_at timestamptz not null,
 					locked_until timestamptz,
+					claim_token text,
 					dead_at timestamptz,
 					last_error text
 				)`);
+				await db.query(`alter table ${TABLE} add column if not exists claim_token text`);
 				await db.query(
 					`create index if not exists jobs_due on ${TABLE} (run_at) where dead_at is null`,
 				);
@@ -113,19 +116,39 @@ export function postgresDriver(options: PostgresDriverOptions): JobDriver {
 			let running = true;
 			let wake: (() => void) | undefined;
 
-			const settle = async (job: JobEnvelope) => {
-				const outcome = await handle(job);
+			// every write after the claim names it: a worker whose claim lapsed and was retaken changes nothing
+			const settle = async (job: JobEnvelope, token: string) => {
+				const renew = setInterval(
+					() => {
+						db.query(
+							`update ${TABLE} set locked_until = now() + $3::bigint * interval '1 millisecond' where id = $1 and claim_token = $2`,
+							[job.id, token, visibilityMs],
+						).catch((err: unknown) =>
+							logger.warn({ err, jobId: job.id }, "could not extend a job's claim"),
+						);
+					},
+					Math.max(50, Math.floor(visibilityMs / 3)),
+				);
+				let outcome: Awaited<ReturnType<typeof handle>>;
+				try {
+					outcome = await handle(job);
+				} finally {
+					clearInterval(renew);
+				}
 				if (outcome.status === "done")
-					await db.query(`delete from ${TABLE} where id = $1`, [job.id]);
+					await db.query(`delete from ${TABLE} where id = $1 and claim_token = $2`, [
+						job.id,
+						token,
+					]);
 				else if (outcome.status === "retry")
 					await db.query(
-						`update ${TABLE} set attempt = attempt + 1, run_at = now() + $2::bigint * interval '1 millisecond', locked_until = null, last_error = $3 where id = $1`,
-						[job.id, outcome.delayMs, String(outcome.error)],
+						`update ${TABLE} set attempt = attempt + 1, run_at = now() + $3::bigint * interval '1 millisecond', locked_until = null, claim_token = null, last_error = $4 where id = $1 and claim_token = $2`,
+						[job.id, token, outcome.delayMs, String(outcome.error)],
 					);
 				else
 					await db.query(
-						`update ${TABLE} set dead_at = now(), locked_until = null, last_error = $2 where id = $1`,
-						[job.id, String(outcome.error)],
+						`update ${TABLE} set dead_at = now(), locked_until = null, claim_token = null, last_error = $3 where id = $1 and claim_token = $2`,
+						[job.id, token, String(outcome.error)],
 					);
 			};
 
@@ -142,7 +165,11 @@ export function postgresDriver(options: PostgresDriverOptions): JobDriver {
 										where dead_at is null and run_at <= now() and (locked_until is null or locked_until < now())
 										order by run_at limit $1 for update skip locked
 									)
-									update ${TABLE} j set locked_until = now() + $2::bigint * interval '1 millisecond'
+									update ${TABLE} j set
+										locked_until = now() + $2::bigint * interval '1 millisecond',
+										claim_token = gen_random_uuid()::text,
+										-- an earlier claim lapsed: its worker died mid-run, which uses up an attempt
+										attempt = case when j.claim_token is null then j.attempt else j.attempt + 1 end
 									from due where j.id = due.id
 									returning j.*`,
 									[free, visibilityMs],
@@ -153,7 +180,7 @@ export function postgresDriver(options: PostgresDriverOptions): JobDriver {
 						}
 					}
 					for (const row of claimed) {
-						const run = settle(toJob(row))
+						const run = settle(toJob(row), row.claim_token)
 							.catch((err) =>
 								logger.error({ err, jobId: row.id }, "could not record a job's outcome"),
 							)

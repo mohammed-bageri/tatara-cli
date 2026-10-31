@@ -161,6 +161,12 @@ export const jobs: Feature = {
 				'import { triggerSchedule } from "@tatara/jobs";\nimport { scheduleRunner } from "#apps/cron/runner";',
 		},
 		{
+			// a triggered schedule runs as long as it takes; a 504 would only make the scheduler retry
+			file: "src/apps/http.ts",
+			slot: "timeout-paths",
+			content: '"/internal/schedules/*": 15 * 60 * 1000,',
+		},
+		{
 			// for a platform scheduler (Cloud Scheduler, EventBridge, a k8s CronJob) instead of apps/cron
 			file: "src/apps/http.ts",
 			slot: "routes",

@@ -3,13 +3,10 @@ import { type CoreLogger, onShutdown } from "@tatara/core";
 import { Cron } from "croner";
 import type { ScheduleContext, ScheduleDefinition } from "./define.ts";
 
-/** What schedules lock with; `cache` from `@tatara/cache` is one. */
+/** What schedules claim ticks with; `cache` from `@tatara/cache` is one (its `add`). */
 export interface ScheduleLock {
-	lock<T>(
-		key: string,
-		ttlMs: number,
-		fn: () => Promise<T>,
-	): Promise<{ acquired: true; value: T } | { acquired: false }>;
+	/** true only for the first caller with this key until the TTL passes */
+	add(key: string, value: string, options: { ttlMs: number }): Promise<boolean>;
 }
 
 export interface ScheduleRunOptions {
@@ -40,8 +37,9 @@ function context(log: CoreLogger, options: ScheduleRunOptions): ScheduleContext 
 }
 
 /**
- * Runs one schedule for one tick, holding the tick's lock: however many cron processes and external
- * triggers fire for the same tick, it runs once. Returns false when someone else had it.
+ * Runs one schedule for one tick. The tick is claimed, not locked: the claim outlives the run, so a
+ * cron process with a skewed clock or a retried trigger for the same tick doesn't run it again.
+ * Returns false when the tick was already claimed.
  */
 export async function runSchedule(
 	schedule: ScheduleDefinition,
@@ -50,11 +48,15 @@ export async function runSchedule(
 ): Promise<boolean> {
 	const log = options.logger.child({ schedule: schedule.name });
 	const key = `schedule:${schedule.name}:${tick.toISOString()}`;
-	const result = await options.lock.lock(key, schedule.lockTtlMs ?? 60_000, () =>
-		schedule.run(context(log, options)),
-	);
-	if (!result.acquired) log.debug("skipped: this tick ran elsewhere");
-	return result.acquired;
+	const claimed = await options.lock.add(key, `${process.pid}`, {
+		ttlMs: schedule.lockTtlMs ?? 60 * 60 * 1000,
+	});
+	if (!claimed) {
+		log.debug("skipped: this tick ran elsewhere");
+		return false;
+	}
+	await schedule.run(context(log, options));
+	return true;
 }
 
 /** Runs each schedule in UTC in this process (the `apps/cron` way). */

@@ -19,7 +19,10 @@ function limitFor(path: string, options: TimeoutOptions): number {
 	return best?.ms ?? options.defaultMs;
 }
 
-/** Answers 504 REQUEST_TIMEOUT when a handler takes longer than its path's limit. */
+/**
+ * Answers 504 REQUEST_TIMEOUT when a handler takes longer than its path's limit. The handler isn't
+ * stopped: what it does after the 504 still happens, so give slow paths a longer limit instead.
+ */
 export function requestTimeout(options: TimeoutOptions): MiddlewareHandler {
 	return createMiddleware(async (c, next) => {
 		const ms = limitFor(c.req.path, options);

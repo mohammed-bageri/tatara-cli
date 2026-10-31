@@ -57,7 +57,7 @@ export const jobsDrivers: Codemod = {
 		}
 		if (customised.length > 0)
 			ctx.report.notes.push(
-				`Compare ${customised.join(", ")} with a newly generated app: the queue is now \`jobs\` (createJobs over the JOBS_DRIVER driver), startWorker takes { driver: jobs.driver, consumers, … }, and startCron takes the schedule runner in src/apps/cron/runner.ts (it locks with the cache).`,
+				`Compare ${customised.join(", ")} with a newly generated app: env gains CACHE_DRIVER, JOBS_DRIVER, KAFKA_BROKERS, KAFKA_CLIENT_ID, KAFKA_SSL, KAFKA_SASL_USERNAME, KAFKA_SASL_PASSWORD and SCHEDULE_TRIGGER_SECRET; the queue is now \`jobs\` (createJobs over the JOBS_DRIVER driver), startWorker takes { driver: jobs.driver, consumers, … }, and startCron takes the schedule runner in src/apps/cron/runner.ts (it locks with the cache).`,
 			);
 		ctx.report.notes.push(
 			"Jobs now pick a driver with JOBS_DRIVER (bullmq stays the default; tests use inline). onDeadLetter runs once, after the last attempt. The app now has the cache add-on, which schedules lock with.",

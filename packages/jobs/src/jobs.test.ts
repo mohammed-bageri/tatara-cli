@@ -13,6 +13,7 @@ import {
 	InvalidPayloadError,
 	inlineDriver,
 	type JobDriver,
+	jobHandler,
 	processJob,
 	runSchedule,
 	type ScheduleLock,
@@ -160,6 +161,16 @@ for (const [name, make] of drivers) {
 			expect(seen).toEqual([]);
 		});
 
+		it("doesn't let a delayed job hold back one that is due", async () => {
+			const { jobs, seen } = await started();
+			await jobs.enqueue("notes.created", { noteId: "later" }, { delayMs: 3000 });
+			const sent = Date.now();
+			await jobs.enqueue("notes.created", { noteId: "now" });
+			await until(() => seen.some((s) => (s.data as { noteId: string }).noteId === "now"));
+			expect(Date.now() - sent).toBeLessThan(2000);
+			await until(() => seen.length === 2);
+		});
+
 		it("waits out a delay", async () => {
 			const { jobs, seen } = await started();
 			const sent = Date.now();
@@ -169,6 +180,31 @@ for (const [name, make] of drivers) {
 		});
 	});
 }
+
+describe.skipIf(!KAFKA_BROKERS)("the kafka driver with a long delay", { timeout: 60_000 }, () => {
+	it("keeps delivering due jobs while a long delay waits", async () => {
+		const c = consumers();
+		const driver = kafkaDriver({
+			kafka: new Kafka({
+				brokers: (KAFKA_BROKERS as string).split(","),
+				logLevel: logLevel.NOTHING,
+			}),
+			topic: `t-${randomUUID()}`,
+			groupId: `g-${randomUUID()}`,
+		});
+		const stop = await startWorker({ driver, consumers: c.list, concurrency: 4, logger });
+		onTestFinished(stop);
+		const jobs = createJobs({ driver, consumers: c.list });
+		await jobs.enqueue("notes.created", { noteId: "later" }, { delayMs: 12_000 });
+		// longer than kafkajs's own retries take to run out
+		await wait(10_000);
+		const sent = Date.now();
+		await jobs.enqueue("notes.created", { noteId: "now" });
+		await until(() => c.seen.some((s) => (s.data as { noteId: string }).noteId === "now"));
+		expect(Date.now() - sent).toBeLessThan(3000);
+		await until(() => c.seen.length === 2, 20_000);
+	});
+});
 
 describe.skipIf(!DATABASE_URL)("the postgres driver as an outbox", { timeout: 30_000 }, () => {
 	it("stores a job only when the caller's transaction commits", async () => {
@@ -191,6 +227,54 @@ describe.skipIf(!DATABASE_URL)("the postgres driver as an outbox", { timeout: 30
 		await until(() => c.seen.length === 1);
 		await wait(300);
 		expect(c.seen.map((s) => s.data)).toEqual([{ noteId: "committed" }]);
+	});
+});
+
+describe.skipIf(!DATABASE_URL)("the postgres driver under a slow job", { timeout: 30_000 }, () => {
+	it("keeps a job that outlives its visibility timeout to one run", async () => {
+		const runs: number[] = [];
+		const slow = [
+			defineConsumer({
+				topic: "slow.job",
+				description: "takes longer than the visibility timeout",
+				schema: z.object({}),
+				async handle() {
+					runs.push(Date.now());
+					await wait(900);
+				},
+			}),
+		] as const;
+		const driver = postgresDriver({ db: pgPool(), pollMs: 50, visibilityMs: 300 });
+		const stop = await startWorker({ driver, consumers: slow, concurrency: 4, logger });
+		onTestFinished(stop);
+		const id = await createJobs({ driver, consumers: slow }).enqueue("slow.job", {});
+		await until(() => runs.length === 1);
+		await wait(1500);
+		expect(runs).toHaveLength(1);
+		const left = await pgPool().query("select count(*)::int as n from tatara.jobs where id = $1", [
+			id,
+		]);
+		expect(left.rows[0].n).toBe(0);
+	});
+});
+
+describe("jobHandler", () => {
+	it("gives up on a job whose deliveries ran past its attempts (a worker died on each)", async () => {
+		const c = consumers();
+		const outcome = await jobHandler(
+			c.list,
+			logger,
+		)({
+			id: "lost",
+			topic: "notes.created",
+			data: { noteId: "x" },
+			orgId: null,
+			attempt: 4,
+			maxAttempts: 3,
+			enqueuedAt: new Date().toISOString(),
+		});
+		expect(outcome.status).toBe("dead");
+		expect(c.seen).toEqual([]);
 	});
 });
 
@@ -251,14 +335,14 @@ describe("createJobs", () => {
 	});
 });
 
-function memoryLock(): ScheduleLock {
-	const held = new Set<string>();
+/** Claims like the cache's add(): a key, once taken, stays taken until its TTL. */
+function claimStore(): ScheduleLock {
+	const taken = new Set<string>();
 	return {
-		async lock(key, _ttl, fn) {
-			if (held.has(key)) return { acquired: false };
-			held.add(key);
-			// a tick's lock is never released early: a second trigger for it must not run again
-			return { acquired: true, value: await fn() };
+		async add(key) {
+			if (taken.has(key)) return false;
+			taken.add(key);
+			return true;
 		},
 	};
 }
@@ -267,12 +351,23 @@ describe("schedules", () => {
 	it("runs a tick once however many processes fire it", async () => {
 		const run = vi.fn(async () => {});
 		const schedule = defineSchedule({ name: "nightly", cron: "0 0 * * *", run });
-		const lock = memoryLock();
+		const lock = claimStore();
 		const tick = new Date("2026-11-01T00:00:00Z");
 		const results = await Promise.all(
 			[1, 2, 3].map(() => runSchedule(schedule, tick, { lock, logger })),
 		);
 		expect(results.filter(Boolean)).toHaveLength(1);
+		expect(run).toHaveBeenCalledTimes(1);
+	});
+
+	it("runs a tick once even when a late process fires after the first run finished", async () => {
+		const run = vi.fn(async () => {});
+		const schedule = defineSchedule({ name: "quick", cron: "* * * * *", run });
+		const lock = claimStore();
+		const tick = new Date("2026-11-01T00:01:00Z");
+		expect(await runSchedule(schedule, tick, { lock, logger })).toBe(true);
+		// clock skew, or a platform scheduler retrying its HTTP call
+		expect(await runSchedule(schedule, tick, { lock, logger })).toBe(false);
 		expect(run).toHaveBeenCalledTimes(1);
 	});
 
@@ -292,7 +387,7 @@ describe("schedules", () => {
 		async function* orgs() {
 			yield* ["a", "b", "c"];
 		}
-		await runSchedule(schedule, new Date(), { lock: memoryLock(), logger, orgs });
+		await runSchedule(schedule, new Date(), { lock: claimStore(), logger, orgs });
 		expect(visited).toEqual(["a", "c"]);
 		expect(result).toEqual({ done: 2, failed: ["b"] });
 	});
@@ -301,7 +396,7 @@ describe("schedules", () => {
 		const run = vi.fn(async () => {});
 		const options = {
 			schedules: [defineSchedule({ name: "report", cron: "0 * * * *", run })],
-			lock: memoryLock(),
+			lock: claimStore(),
 			logger,
 			secret: "s3cret-s3cret",
 		};

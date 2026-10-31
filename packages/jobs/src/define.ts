@@ -58,7 +58,7 @@ export interface ScheduleDefinition {
 	name: string;
 	/** cron expression (seconds optional), evaluated in UTC */
 	cron: string;
-	/** how long a run holds its lock; one run per tick across all processes and triggers */
+	/** how long a tick stays claimed (default an hour): one run per tick across processes and triggers */
 	lockTtlMs?: number;
 	run(ctx: ScheduleContext): Promise<void>;
 }

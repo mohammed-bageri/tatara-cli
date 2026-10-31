@@ -45,6 +45,9 @@ export function jobHandler(
 			return { status: "dead", error };
 		};
 		if (!consumer) return dead(new UnknownTopicError(`No consumer for topic "${job.topic}"`));
+		// redelivered past its attempts: the worker died during each one, so stop trying
+		if (job.attempt > (consumer.attempts ?? job.maxAttempts))
+			return dead(new Error(`Job ${job.id} was lost by its worker on every attempt`));
 		let data: unknown;
 		try {
 			data = parsePayload(consumer, job.data);

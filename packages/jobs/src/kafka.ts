@@ -14,8 +14,10 @@ export interface KafkaDriverOptions {
 const NOT_BEFORE = "tatara-not-before";
 
 /**
- * Jobs on Kafka: one topic per app, keyed by org so an org's jobs keep their order. Delays are at
- * least what was asked (a delayed message pauses its partition until it's due).
+ * Jobs on Kafka: one topic per app, keyed by org so an org's jobs keep their order. Delayed jobs
+ * (retries, `delayMs`) wait in `<topic>.delayed` under their own consumer group and move to the main
+ * topic when due, so they never hold up due jobs. Delays are at least what was asked: a long one
+ * holds back shorter delays queued behind it on the same partition.
  */
 export function kafkaDriver(options: KafkaDriverOptions): JobDriver {
 	const delayed = `${options.topic}.delayed`;
@@ -75,19 +77,31 @@ export function kafkaDriver(options: KafkaDriverOptions): JobDriver {
 		},
 		async consume(handle, { concurrency, logger }) {
 			await ensureTopics();
+			// delayed jobs wait in their own group, so a long delay never holds up jobs that are due
+			const waiter = options.kafka.consumer({ groupId: `${options.groupId}.delayed` });
+			await waiter.connect();
+			await waiter.subscribe({ topics: [delayed] });
+			let running = true;
+			await waiter.run({
+				eachMessage: async ({ message, heartbeat }) => {
+					const notBefore = Number(message.headers?.[NOT_BEFORE]?.toString() ?? 0);
+					while (running && Date.now() < notBefore) {
+						await new Promise((r) => setTimeout(r, Math.min(1000, notBefore - Date.now())));
+						// keeps this member in the group while it waits
+						await heartbeat();
+					}
+					if (!running) throw new Error("stopping");
+					const job = JSON.parse(message.value?.toString() ?? "null") as JobEnvelope | null;
+					if (job) await produce(options.topic, [{ job, delayMs: 0 }]);
+				},
+			});
+
 			const consumer = options.kafka.consumer({ groupId: options.groupId });
 			await consumer.connect();
-			await consumer.subscribe({ topics: [options.topic, delayed] });
+			await consumer.subscribe({ topics: [options.topic] });
 			await consumer.run({
 				partitionsConsumedConcurrently: concurrency,
-				eachMessage: async ({ message, pause }) => {
-					const notBefore = Number(message.headers?.[NOT_BEFORE]?.toString() ?? 0);
-					const wait = notBefore - Date.now();
-					if (wait > 0) {
-						// not due: stop this partition, and have the message delivered again once it is
-						setTimeout(pause(), wait);
-						throw new Error("not due yet");
-					}
+				eachMessage: async ({ message }) => {
 					const job = JSON.parse(message.value?.toString() ?? "null") as JobEnvelope | null;
 					if (!job) return;
 					const outcome = await handle(job);
@@ -99,10 +113,15 @@ export function kafkaDriver(options: KafkaDriverOptions): JobDriver {
 						await produce(dead, [{ job, delayMs: 0 }], { "tatara-error": String(outcome.error) });
 				},
 			});
-			consumer.on(consumer.events.CRASH, (event) =>
-				logger.error({ err: event.payload.error }, "kafka consumer crashed"),
-			);
-			return () => consumer.disconnect();
+			for (const c of [consumer, waiter])
+				c.on(c.events.CRASH, (event) =>
+					logger.error({ err: event.payload.error }, "kafka consumer crashed"),
+				);
+			return async () => {
+				// a waiting delayed message stays uncommitted and is picked up again after restart
+				running = false;
+				await Promise.all([consumer.disconnect(), waiter.disconnect()]);
+			};
 		},
 	};
 }
