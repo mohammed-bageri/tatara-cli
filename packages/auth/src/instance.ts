@@ -62,11 +62,12 @@ export function createAuthInstance<O extends BetterAuthOptions>(
 			if (!principal) throw new UnauthorizedError();
 			const orgId = c.req.header(header) ?? principal.orgId;
 			if (!orgId) throw new OrgRequiredError();
-			if (principal.kind === "service") {
-				// a service token is issued for one org
-				if (orgId !== principal.orgId)
-					throw new ForbiddenError("Not a member of this organization");
-			} else {
+			// a service token is issued for one org; a token's org claim beats member rows it left behind
+			const vouched =
+				principal.kind === "service" ? [principal.orgId] : (principal.orgs ?? undefined);
+			if (vouched && !vouched.includes(orgId))
+				throw new ForbiddenError("Not a member of this organization");
+			if (principal.kind !== "service") {
 				const { adapter } = await (
 					auth as unknown as { $context: Promise<{ adapter: MemberLookup }> }
 				).$context;
@@ -77,8 +78,8 @@ export function createAuthInstance<O extends BetterAuthOptions>(
 						{ field: "userId", value: principal.userId },
 					],
 				});
-				if (!member) throw new ForbiddenError("Not a member of this organization");
-				c.set("principal", { ...principal, orgId, orgRole: member.role ?? null });
+				if (!member && !vouched) throw new ForbiddenError("Not a member of this organization");
+				c.set("principal", { ...principal, orgId, orgRole: member?.role ?? null });
 			}
 			await next();
 		}) as unknown as MiddlewareHandler<Env>;

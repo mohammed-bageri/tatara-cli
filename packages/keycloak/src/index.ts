@@ -11,5 +11,6 @@ export {
 	type KeycloakVerifierOptions,
 	keycloakVerifier,
 	organizationOf,
+	organizationsOf,
 	rolesOf,
 } from "./verifier.ts";

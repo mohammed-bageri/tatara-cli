@@ -7,6 +7,8 @@ export interface Principal {
 	orgId: string | null;
 	/** the caller's role in `orgId` (better-auth member role), when they act in an org */
 	orgRole?: string | null;
+	/** orgs the credential itself names (e.g. a token's org claim); requireOrg allows only these */
+	orgs?: string[];
 	roles: string[];
 	kind: "user" | "service";
 	claims: Record<string, unknown>;

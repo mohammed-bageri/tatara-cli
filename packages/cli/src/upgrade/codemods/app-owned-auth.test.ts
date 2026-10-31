@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { upgrade } from "../../commands/upgrade.ts";
 import { loadProject, type Project } from "../../project/config.ts";
 import { hashContent } from "../../project/hashes.ts";
+import type { Codemod } from "../codemods.ts";
 import { appOwnedAuth } from "./app-owned-auth.ts";
 
 const OLD: Record<string, string> = {
@@ -23,6 +24,7 @@ const OLD: Record<string, string> = {
 function app(
 	overrides: Record<string, string> = {},
 	authMethods: string[] = ["password"],
+	addons: string[] = ["authz"],
 ): Project {
 	const root = mkdtempSync(join(tmpdir(), "tatara-app-owned-auth-"));
 	const files: Record<string, string> = {
@@ -38,7 +40,7 @@ function app(
 			database: "postgres",
 			auth: "better-auth",
 			authMethods,
-			addons: ["authz"],
+			addons,
 			packageManager: "pnpm",
 			generated: {
 				cli: "0.9.2",
@@ -54,10 +56,10 @@ function app(
 	return loadProject(root);
 }
 
-const run = (project: Project) =>
+const run = (project: Project, earlier: Codemod[] = []) =>
 	upgrade(project, {
 		cliVersion: "0.10.0",
-		codemods: [appOwnedAuth],
+		codemods: [...earlier, appOwnedAuth],
 		baseline: {
 			async isUnchanged(path, content) {
 				return project.config.generated?.files[path] === hashContent(content);
@@ -126,6 +128,52 @@ describe("0.10.0 app-owned-auth codemod", () => {
 		const project = app({ "src/core/auth/guest-link.ts": "export const x = 1;\n" });
 		const report = await run(project);
 		expect(report.notes.join("\n")).toContain("src/core/auth/guest-link.ts");
+	});
+
+	it("gives an admin app its staff module and new env", async () => {
+		const project = app(
+			{ "src/core/config/env.ts": "// mine\n" },
+			["password"],
+			["authz", "admin"],
+		);
+		const report = await run(project);
+		expect(read(project, "src/modules/staff/services/auth.ts")).toContain("staffAuth");
+		expect(exists(project, "prisma/models/staff.prisma")).toBe(true);
+		expect(exists(project, "tests/helpers/staff.ts")).toBe(true);
+		expect(read(project, "src/apps/http.ts")).toContain("#modules/staff/services/auth");
+		const notes = report.notes.join("\n");
+		expect(notes).toContain("tatara db generate");
+		expect(notes).toContain("SEED_STAFF_EMAIL and SEED_STAFF_PASSWORD to src/core/config/env.ts");
+	});
+
+	it("moves what an older codemod regenerated in the same upgrade", async () => {
+		// e.g. 0.5.0 auth-package regenerates src/core/http/app.ts, which now renders the 0.10 file
+		const older: Codemod = {
+			version: "0.9.5",
+			id: "older",
+			description: "",
+			run: async (ctx) => void (await ctx.regenerate("src/core/http/app.ts")),
+		};
+		const project = app();
+		const report = await run(project, [older]);
+		expect(report.blocked).toEqual([]);
+		expect(exists(project, "src/core/http/app.ts")).toBe(false);
+		expect(read(project, "src/apps/http.ts")).toContain("attachPrincipal");
+	});
+
+	it("makes an unchanged authz instance single-tenant even when the move is blocked", async () => {
+		const project = app({ "src/core/auth/auth.ts": "export const auth = { mine: true };\n" });
+		await run(project);
+		expect(read(project, "src/core/authz/index.ts")).toContain('singleTenant: "default"');
+	});
+
+	it("moves nothing onto a file the app already has at the new place", async () => {
+		const project = app({ "src/modules/users/services/auth.ts": "export const mine = 1;\n" });
+		const report = await run(project);
+		expect(read(project, "src/modules/users/services/auth.ts")).toBe("export const mine = 1;\n");
+		expect(exists(project, "src/core/auth/auth.ts")).toBe(true);
+		expect(report.blocked).toEqual(["app-owned-auth"]);
+		expect(report.notes.join("\n")).toContain("src/modules/users/services/auth.ts already exists");
 	});
 
 	it("is idempotent", async () => {

@@ -36,7 +36,18 @@ const { auth, attachPrincipal, requireOrg } = createAuthInstance(
 		database: memoryAdapter(db),
 		plugins: [bearer(), organization()],
 	},
-	{ resolvers: [() => (c) => (c.req.header("x-service") ? service : null)] },
+	{
+		resolvers: [
+			() => (c) => (c.req.header("x-service") ? service : null),
+			// a token user: the token's org claim names the orgs they may act in
+			() => (c) => {
+				const userId = c.req.header("x-token-user");
+				if (!userId) return null;
+				const orgs = [c.req.header("x-token-org") as string];
+				return { userId, orgId: orgs[0] ?? null, orgs, roles: [], kind: "user", claims: {} };
+			},
+		],
+	},
 );
 
 function app() {
@@ -107,6 +118,16 @@ describe("requireOrg", () => {
 			(await app().request("/org", { headers: { "x-service": "1", "x-org-id": "elsewhere" } }))
 				.status,
 		).toBe(403);
+	});
+
+	it("lets a token user act only in the orgs their token names, whatever member rows remain", async () => {
+		const { orgId, userId } = await member();
+		const token = { "x-token-user": userId, "x-token-org": "org-now" };
+		const stale = await app().request("/org", { headers: { ...token, "x-org-id": orgId } });
+		expect(stale.status).toBe(403);
+		const now = await app().request("/org", { headers: { ...token, "x-org-id": "org-now" } });
+		expect(now.status).toBe(200);
+		expect(await now.json()).toMatchObject({ userId, orgId: "org-now", orgRole: null });
 	});
 });
 

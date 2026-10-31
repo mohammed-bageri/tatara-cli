@@ -213,6 +213,11 @@ describe("tenant context", () => {
 		expect(await authz.resolveScope(who("u1", [], "org-a", "nobody"), "doc:read")).toBeNull();
 	});
 
+	it("reads every role of a member with several (better-auth stores them comma-separated)", async () => {
+		await authz.syncSystemRoles();
+		expect(await authz.resolveScope(who("u1", [], "org-a", "owner,admin"), "doc:read")).toBe("org");
+	});
+
 	it("removes a member's access through the organization hooks it gives better-auth", async () => {
 		const { authzOrganizationHooks } = await import("./index.ts");
 		await authz.addOverlay(null, "org-a", "u1", {

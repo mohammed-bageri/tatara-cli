@@ -5,6 +5,7 @@ import { glob } from "tinyglobby";
 import { renderApp } from "../engine/generate.ts";
 import type { Project } from "../project/config.ts";
 import { ejectedPackages, pointAtEjected } from "../project/ejected.ts";
+import { hashContent } from "../project/hashes.ts";
 import type { Baseline } from "./baseline.ts";
 import { importsOf } from "./codemods/imports.ts";
 import { currentPath } from "./moves.ts";
@@ -43,9 +44,16 @@ const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&
 
 export function createContext(
 	project: Project,
-	baseline: Baseline,
+	appBaseline: Baseline,
 	opts: { dryRun?: boolean } = {},
 ): UpgradeContext {
+	// what an earlier codemod of this upgrade wrote is the CLI's, not the app's
+	const ours = new Map<string, string>();
+	const baseline: Baseline = {
+		async isUnchanged(path, content) {
+			return ours.get(path) === hashContent(content) || appBaseline.isUnchanged(path, content);
+		},
+	};
 	const report: UpgradeReport = {
 		ran: [],
 		written: [],
@@ -67,6 +75,7 @@ export function createContext(
 			if (before === undefined || (await baseline.isUnchanged(path, before)))
 				report.regenerated.push(path);
 		}
+		ours.set(path, hashContent(text));
 		if (opts.dryRun) return;
 		await mkdir(dirname(abs(path)), { recursive: true });
 		await writeFile(abs(path), text);

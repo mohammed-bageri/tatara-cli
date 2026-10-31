@@ -126,9 +126,9 @@ export function createAuthz<K extends string = string>(options: AuthzOptions) {
 	 * (`roles`) and the member's role in the org it acts in (`orgRole`).
 	 */
 	const impliedRoles = (principal: Who) =>
-		[...new Set([...principal.roles, ...(principal.orgRole ? [principal.orgRole] : [])])].filter(
-			(role) => systemRoleKeys.has(role),
-		);
+		[...new Set([...principal.roles, ...(principal.orgRole?.split(",") ?? [])])]
+			.map((role) => role.trim())
+			.filter((role) => systemRoleKeys.has(role));
 
 	/**
 	 * Effective permissions = grants of the member's roles (assigned in the org, plus built-in

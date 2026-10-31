@@ -3,7 +3,13 @@ import type { CoreLogger } from "@tatara/core";
 import type { BetterAuthPlugin } from "better-auth";
 import { createAuthEndpoint } from "better-auth/api";
 import { z } from "zod";
-import { type KeycloakClaims, type KeycloakVerifier, organizationOf, rolesOf } from "./verifier.ts";
+import {
+	type KeycloakClaims,
+	type KeycloakVerifier,
+	organizationOf,
+	organizationsOf,
+	rolesOf,
+} from "./verifier.ts";
 
 export interface KeycloakTokensOptions {
 	verifier: KeycloakVerifier;
@@ -139,6 +145,8 @@ export function keycloakTokens(options: KeycloakTokensOptions) {
 						userId: claims.sub,
 						orgId,
 						orgRole: null,
+						// a realm with organizations decides them; without, better-auth membership does
+						...(claims.organization === undefined ? {} : { orgs: organizationsOf(claims) }),
 						roles: rolesOf(claims, verifier.audience),
 						kind: isService ? "service" : "user",
 						claims,
