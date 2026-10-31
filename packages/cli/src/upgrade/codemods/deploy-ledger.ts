@@ -1,6 +1,11 @@
 import type { Codemod } from "../codemods.ts";
 
-const REGENERATED = ["src/apps/cli/index.ts", "src/core/db/admin.ts", "src/apps/api/server.ts"];
+const REGENERATED = [
+	"src/apps/cli/index.ts",
+	"src/core/db/admin.ts",
+	"src/apps/api/server.ts",
+	"src/core/logging/logger.ts",
+];
 const ADDED = ["src/core/commands/db/command-runs.schema.ts", "prisma/models/command-runs.prisma"];
 
 /** `deploy`: migrations and deploy/once commands, with a ledger of what ran once. */

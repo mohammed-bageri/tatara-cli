@@ -5,6 +5,8 @@
  */
 import { type ChildProcess, spawn } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { join, resolve } from "node:path";
 import { parseEnv } from "node:util";
 import { hashTrackedFiles } from "../packages/cli/src/project/hashes.ts";
@@ -421,6 +423,47 @@ async function smoke(s: Scenario, dir: string, logDir: string): Promise<string[]
 			);
 			expect(Number(box.total) >= 1, "Mailpit received nothing");
 			notes.push("email");
+		}
+
+		if (s.addons.includes("observability")) {
+			// the production start: instrumented, sending to a collector (here, a stand-in)
+			const paths: string[] = [];
+			const collector = createServer((req, res) => {
+				paths.push(req.url ?? "");
+				req.resume();
+				req.on("end", () => res.writeHead(200, { "content-type": "application/json" }).end("{}"));
+			});
+			await new Promise<void>((r) => collector.listen(0, r));
+			const port = Number(env.PORT) + 50;
+			const traced = spawn(
+				"node",
+				["--env-file=.env", "--import", "./dist/apps/instrument.mjs", "dist/apps/api/server.mjs"],
+				{
+					cwd: dir,
+					env: {
+						...process.env,
+						PORT: String(port),
+						OTEL_EXPORTER_OTLP_ENDPOINT: `http://localhost:${(collector.address() as AddressInfo).port}`,
+					},
+				},
+			);
+			try {
+				expect(await waitFor(`http://localhost:${port}/health`), "instrumented API did not start");
+				expect(
+					(await fetch(`http://localhost:${port}/api/greetings?name=OTel`)).ok,
+					"greetings failed",
+				);
+			} finally {
+				// a graceful stop flushes the spans
+				traced.kill("SIGTERM");
+				await new Promise((r) => traced.once("exit", r));
+				collector.close();
+			}
+			expect(
+				paths.includes("/v1/traces"),
+				`no traces reached the collector (got ${paths.join(", ")})`,
+			);
+			notes.push("telemetry");
 		}
 
 		if (s.addons.includes("realtime") && crudToken) {

@@ -6,6 +6,7 @@ import {
 	i18n,
 	jobs,
 	notifications,
+	observability,
 	realtime,
 	storage,
 } from "./addons.ts";
@@ -49,5 +50,7 @@ export const FEATURES: Record<string, Feature> = Object.fromEntries(
 		storage,
 		email,
 		i18n,
+		// last: its start scripts replace the others'
+		observability,
 	].map((f) => [f.id, f]),
 );

@@ -10,6 +10,7 @@ export interface Scenario {
 		| "cache"
 		| "notifications"
 		| "realtime"
+		| "observability"
 		| "admin"
 		| "storage"
 		| "email"
@@ -44,12 +45,13 @@ const ALL_ADDONS = [
 	"cache",
 	"notifications",
 	"realtime",
+	"observability",
 	"admin",
 	"storage",
 	"email",
 	"i18n",
 ] as const;
-const NO_AUTH_ADDONS = ["jobs", "cache", "storage", "email", "i18n"] as const;
+const NO_AUTH_ADDONS = ["jobs", "cache", "observability", "storage", "email", "i18n"] as const;
 const ALL_METHODS = ["email-otp", "phone-otp", "password", "orgs"] as const;
 
 const core: Scenario[] = [];

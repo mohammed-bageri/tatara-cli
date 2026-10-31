@@ -8,6 +8,7 @@ export type Addon =
 	| "cache"
 	| "notifications"
 	| "realtime"
+	| "observability"
 	| "admin"
 	| "storage"
 	| "email"
