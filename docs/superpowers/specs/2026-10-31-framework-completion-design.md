@@ -18,6 +18,7 @@ The rules from `2026-10-30-framework-packages-design.md` still hold: Hono stays 
 2. **Every backing service is a driver behind an interface.**
    - Each package ships an in-process driver for dev and tests, a Postgres driver where that makes sense, and the common hosted options.
    - An app picks its drivers in env. There is no lock-in to Redis, a cloud, or a broker.
+   - New apps default to Redis (with a Redis container in dev compose). Postgres and memory are one env change away.
 3. **Tenant context is explicit.**
    - A request that acts in an org says which org, and the framework checks membership.
    - Single-tenant apps opt in to a fixed org id. Nothing falls back silently.
@@ -32,8 +33,8 @@ Each step is one release, one codemod, the full e2e matrix, a review, and MeemAi
 |---|---|---|
 | 1 | **App-owned auth, explicit tenant** | See "Step 1" below. |
 | 2 | **`@tatara/cache`** | A KV interface: `get/set/del/increment/wrap/lock`. Drivers: memory, Postgres (unlogged table + advisory locks), Redis. Used by rate limits and schedule locks, and by apps directly (tenant/user key helpers from Sana). |
-| 3 | **HTTP gaps** | `rateLimit({ store, key, window, max })` on top of cache, with an i18n 429. Cursor pagination (`cursorQuery`, `cursorPage`, encode/decode). CORS origin patterns for wildcard tenant subdomains. Per-path timeouts. A `startServer` `onServer` hook so realtime can attach. `tatara contracts` writes `openapi.json` + generated TS types (`openapi-typescript`) for typed frontends. |
-| 4 | **Jobs v2** (`@tatara/jobs`) | One queue interface with drivers inline (dev/tests), Postgres (`SKIP LOCKED`, which doubles as a transactional outbox when enqueued with the caller's executor), and BullMQ. Retries with backoff, a dead-letter step that runs only after the last attempt, payload validation through the consumer's zod schema, and a standard `orgId` in the job envelope. Schedules can run in-process (`apps/cron`) or be triggered from outside (`tatara run schedule:<name>`, or an HTTP trigger), so a platform scheduler works anywhere. `forEachOrg` covers per-tenant schedules. |
+| 3 | **HTTP gaps** | `rateLimit({ store, key, window, max })` on top of cache, with an i18n 429. Cursor pagination (`cursorQuery`, `cursorPage`, encode/decode). CORS origin patterns for wildcard tenant subdomains. Per-path timeouts. A `startServer` `onServer` hook so realtime can attach. `tatara contracts` writes `openapi.json` + generated TS types (`openapi-typescript`) for typed frontends that use `openapi-fetch`. This replaces Sana's Hono RPC `ApiContract`. |
+| 4 | **Jobs v2** (`@tatara/jobs`) | One queue interface with drivers inline (dev/tests), Postgres (`SKIP LOCKED`, which doubles as a transactional outbox when enqueued with the caller's executor), BullMQ (the default), and Kafka (a consumer group per app). Retries with backoff, a dead-letter step that runs only after the last attempt, payload validation through the consumer's zod schema, and a standard `orgId` in the job envelope. Schedules can run in-process (`apps/cron`) or be triggered from outside (`tatara run schedule:<name>`, or an HTTP trigger), so a platform scheduler works anywhere. `forEachOrg` covers per-tenant schedules. |
 | 5 | **Notifications** (`@tatara/notifications`, `@tatara/email` v2) | `notify({ orgId, to: user, users, role or permission, template, data, channels })`. It writes an in-app record (app-owned table) and delivers by email, SMS, push and realtime through jobs: one outbox for everything. Templates are a module convention (`notifications/*.ts`, `emails/*.ts`). Drivers: email SMTP / Mailgun / console; SMS Twilio / console; push FCM / console. |
 | 6 | **Realtime** (`@tatara/realtime`) | Ticket auth (single-use, through cache), automatic rooms per user and org, module channels (`channels/*.ts`: name pattern, `authorize`, zod events). `publishToUser`, `publishToOrg`, `publishTo(channel)`, and disconnect by user or org. Drivers: socket.io with an adapter (memory or Redis; a Postgres LISTEN/NOTIFY adapter is possible later), or noop. Other processes publish through the adapter. |
 | 7 | **Operations** | `@tatara/observability` (OpenTelemetry init/shutdown, Hono middleware, OTLP). Crypto helpers in `@tatara/core` (token encryption with a key from env, OTP and codes). A command ledger (`kind: "deploy"` runs every deploy, `"once"` runs once per database). Text sanitizers. |
@@ -50,8 +51,13 @@ For Sana's migration, later: an AI client (providers with fallback, pricing, JSO
   - `createAuthz({ singleTenant: "<id>" })` is the explicit opt-in for single-tenant apps.
   - `authzOrganizationHooks(authz)` gives an app the better-auth hooks (member removed → access removed) to pass in its own config.
 
-**Generated app**
-- `src/modules/accounts/` owns `auth.ts` (the app's better-auth options, through `createAuthInstance`), delivery, the dev-admin seed, `GET /me`, and the auth-related permissions. Domain hooks, like MeemAin's guest merge, live there or in modules it calls.
+**Generated app** (Sana's layout)
+- `src/modules/user/` owns `auth.ts` (the app's better-auth options for its users, through `createAuthInstance`), delivery, `GET /me`, and the user-related permissions. Domain hooks, like MeemAin's guest merge, live there or in modules it calls.
+- With the admin add-on, `src/modules/staff/` owns a second instance for internal staff:
+  - its own better-auth options, tables (`staff_users`, `staff_sessions` and so on, through better-auth's model names) and dev-admin seed;
+  - its own `/api/auth` mount on the admin app;
+  - platform permissions checked by the admin app.
+  - Staff and customer accounts never share a table.
 - `src/apps/http.ts` (moved from `src/core/http/app.ts`) builds every HTTP app. It mounts the module's auth handler and principal middleware, then the generated routes.
 - `src/core/authz/index.ts` creates the engine. Its hooks go into the accounts module's auth config, written by the app.
 
@@ -64,4 +70,8 @@ Decided in conversation:
 - jobs, scheduler, notifications and websockets are in scope;
 - no lock-in.
 
-Open (asked separately): the accounts module's name, the contracts approach, default drivers, and when the Kafka driver lands.
+Decided after:
+- `user` plus optional `staff` modules (Sana's layout);
+- contracts generated from OpenAPI;
+- Redis-first default drivers;
+- a Kafka driver in step 4.
