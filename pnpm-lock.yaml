@@ -74,12 +74,18 @@ importers:
       '@tatara/core':
         specifier: workspace:^
         version: link:../core
+      '@tatara/db':
+        specifier: workspace:^
+        version: link:../db
       '@tatara/http':
         specifier: workspace:^
         version: link:../http
       better-auth:
         specifier: ^1.7.8
         version: 1.7.14(drizzle-orm@0.45.4(@types/pg@8.23.1)(kysely@0.29.7)(mysql2@3.24.6(@types/node@24.19.2))(pg@8.23.1))(mysql2@3.24.6(@types/node@24.19.2))(pg@8.23.1)(vitest@5.0.4(@types/node@24.19.2)(vite@8.3.4(@types/node@24.19.2)(yaml@2.9.1)))
+      drizzle-orm:
+        specifier: ^0.45.4
+        version: 0.45.4(@types/pg@8.23.1)(kysely@0.29.7)(mysql2@3.24.6(@types/node@24.19.2))(pg@8.23.1)
       hono:
         specifier: ^4.13.13
         version: 4.13.14

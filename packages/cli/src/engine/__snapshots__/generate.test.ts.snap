@@ -36,7 +36,6 @@ exports[`renderApp > produces the expected file set for a full better-auth app 1
   "src/core/authz/commands/sync-permissions.ts",
   "src/core/authz/db/authz.schema.ts",
   "src/core/authz/db/seed.ts",
-  "src/core/authz/db/store.ts",
   "src/core/authz/index.ts",
   "src/core/authz/routes/authorization.routes.ts",
   "src/core/authz/system-roles.ts",

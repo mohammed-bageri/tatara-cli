@@ -13,6 +13,14 @@
 		"./testing": {
 			"types": "./dist/testing.d.mts",
 			"import": "./dist/testing.mjs"
+		},
+		"./prisma": {
+			"types": "./dist/prisma.d.mts",
+			"import": "./dist/prisma.mjs"
+		},
+		"./drizzle": {
+			"types": "./dist/drizzle.d.mts",
+			"import": "./dist/drizzle.mjs"
 		}
 	},
 	"files": [
@@ -31,7 +39,9 @@
 		"hono": "^4.13.13",
 		"@hono/zod-openapi": "^1.6.3",
 		"@tatara/http": "^0.1.0",
-		"@tatara/auth": "^0.1.0"
+		"@tatara/auth": "^0.1.0",
+		"@tatara/db": "^0.1.1",
+		"drizzle-orm": "^0.45.4"
 	},
 	"devDependencies": {
 		"hono": "^4.13.13",
@@ -43,7 +53,9 @@
 		"@scalar/hono-api-reference": "^0.12.12",
 		"better-auth": "^1.7.8",
 		"pino": "^10.4.0",
-		"zod": "^4.6.7"
+		"zod": "^4.6.7",
+		"@tatara/db": "workspace:^",
+		"drizzle-orm": "^0.45.4"
 	},
 	"publishConfig": {
 		"access": "public"
@@ -56,5 +68,10 @@
 	"homepage": "https://github.com/mohammed-bageri/tatara-cli#readme",
 	"bugs": {
 		"url": "https://github.com/mohammed-bageri/tatara-cli/issues"
+	},
+	"peerDependenciesMeta": {
+		"drizzle-orm": {
+			"optional": true
+		}
 	}
 }
