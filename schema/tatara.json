@@ -29,7 +29,17 @@
 		"addons": {
 			"type": "array",
 			"items": {
-				"enum": ["authz", "jobs", "cache", "notifications", "admin", "storage", "email", "i18n"]
+				"enum": [
+					"authz",
+					"jobs",
+					"cache",
+					"notifications",
+					"realtime",
+					"admin",
+					"storage",
+					"email",
+					"i18n"
+				]
 			},
 			"uniqueItems": true
 		},

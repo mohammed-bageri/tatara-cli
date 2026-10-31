@@ -575,6 +575,115 @@ export const notifications: Feature = {
 	],
 };
 
+export const realtime: Feature = {
+	id: "realtime",
+	kind: "addon",
+	label: "Realtime (websockets)",
+	dependencies: [
+		"@tatara/realtime",
+		"socket.io",
+		"@socket.io/redis-adapter",
+		"@socket.io/redis-emitter",
+		"ioredis",
+	],
+	devDependencies: ["socket.io-client"],
+	env: [
+		{
+			key: "REALTIME_DRIVER",
+			schema: 'z.enum(["socketio", "noop"]).default("socketio")',
+			example: "socketio",
+			comment: "noop turns websockets off (publishes do nothing)",
+		},
+		{
+			key: "REALTIME_ADAPTER",
+			schema: 'localDefault(z.enum(["redis", "memory"]), "redis")',
+			example: "redis",
+			test: "memory",
+			comment: "redis shares rooms across api processes and lets workers publish",
+		},
+		{ key: "REALTIME_PATH", schema: 'z.string().default("/realtime")', example: "/realtime" },
+		{
+			key: "REALTIME_TICKET_TTL_SECONDS",
+			schema: "z.coerce.number().int().positive().default(60)",
+			example: "60",
+		},
+		{
+			key: "REDIS_PORT",
+			schema: "",
+			example: "6379",
+			composeOnly: true,
+			comment: "Host port for local Redis",
+		},
+		{ key: "REDIS_URL", schema: "z.url()", example: "redis://localhost:6379/0" },
+	],
+	compose: { redis: REDIS_SERVICE },
+	slots: [
+		{
+			file: "src/apps/api/server.ts",
+			slot: "imports",
+			content:
+				'import { realtime } from "#core/realtime/index";\nimport { channels } from "#generated/channels";',
+		},
+		{
+			file: "src/apps/api/server.ts",
+			slot: "server-options",
+			content:
+				"// websockets share the api's port\nonServer: (server) => void realtime.attach(server as never, { channels }),",
+		},
+		{
+			// a socket acts in one org, like a request
+			file: "src/modules/realtime/routes/realtime.routes.ts",
+			slot: "guard",
+			when: ["auth-orgs"],
+			content: "requireOrg(),",
+		},
+		{
+			file: "src/modules/realtime/routes/realtime.routes.ts",
+			slot: "imports",
+			when: ["auth-orgs"],
+			content: 'import { requireOrg } from "#modules/users/services/auth";',
+		},
+		{
+			// the inbox updates live in every open tab
+			file: "src/modules/notifications/services/notifier.ts",
+			slot: "senders",
+			when: ["notifications"],
+			content: [
+				"onInApp: (row) =>",
+				'\tpublishToUser(row.orgId, row.userId, "notification.created", {',
+				"\t\tid: row.id,",
+				"\t\ttitle: row.title,",
+				"\t\tbody: row.body ?? null,",
+				"\t\turl: row.url ?? null,",
+				"\t}),",
+			].join("\n"),
+		},
+		{
+			file: "src/modules/notifications/services/notifier.ts",
+			slot: "imports",
+			when: ["notifications"],
+			content: 'import { publishToUser } from "#core/realtime/index";',
+		},
+		{
+			file: "AGENTS.md",
+			slot: "sections",
+			content: `## Realtime
+
+- A client asks \`POST /api/realtime/ticket\` (signed in) for a single-use ticket, then connects with
+  socket.io: \`io(API_URL, { path: "/realtime", transports: ["websocket"], auth: { ticket } })\`.
+  A socket belongs to one user in one org, and joins that user's and that org's rooms.
+- Publish from any process (api, worker, cron): \`publishToUser(orgId, userId, event, payload)\`,
+  \`publishToOrg(orgId, event, payload)\` from \`#core/realtime/index\`. \`disconnectUser\` /
+  \`disconnectOrg\` close sockets when access changes; clients reconnect with a new ticket.
+- Rooms of your own: \`channels/<name>.ts\` in a module, \`defineChannel({ name: "survey.{surveyId}",
+  events: { "answer.created": schema }, authorize(who, params) })\`. Clients \`emit("subscribe", name)\`;
+  publish with \`publishTo(channel, { orgId, params, event, payload })\` (the payload is checked).
+- With notifications, every inbox entry is also pushed as \`notification.created\`.
+`,
+		},
+	],
+};
+
 export const storage: Feature = {
 	id: "storage",
 	kind: "addon",

@@ -413,6 +413,53 @@ async function smoke(s: Scenario, dir: string, logDir: string): Promise<string[]
 			notes.push("email");
 		}
 
+		if (s.addons.includes("realtime") && crudToken) {
+			// a real client on the running api; the publish comes from another process, through Redis
+			const ticket = await json(
+				await fetch(`${base}/api/realtime/ticket`, { method: "POST", headers: auth(crudToken) }),
+			);
+			const t = (ticket.data as { ticket?: string } | undefined)?.ticket;
+			expect(t, `realtime/ticket failed: ${JSON.stringify(ticket)}`);
+			const me = await json(await fetch(`${base}/api/me`, { headers: auth(crudToken) }));
+			const who = me.data as { userId: string; orgId: string | null };
+			const client = run(
+				"node",
+				[
+					"--input-type=module",
+					"-e",
+					`import { io } from "socket.io-client";
+const s = io(${JSON.stringify(base)}, { path: "/realtime", transports: ["websocket"], auth: { ticket: ${JSON.stringify(t)} }, reconnection: false });
+const fail = setTimeout(() => { console.error("no event"); process.exit(1); }, 15000);
+s.on("connect_error", (e) => { console.error(e.message); process.exit(1); });
+s.on("connect", () => console.log("connected"));
+s.on("e2e.ping", (p) => { clearTimeout(fail); console.log(JSON.stringify(p)); process.exit(0); });`,
+				],
+				{ cwd: dir },
+			);
+			await new Promise((r) => setTimeout(r, 1500));
+			const published = await run(
+				"node",
+				[
+					"--env-file=.env",
+					"dist/apps/cli/index.mjs",
+					"realtime:publish",
+					"--org",
+					who.orgId ?? "default",
+					"--user",
+					who.userId,
+					"--event",
+					"e2e.ping",
+					"--data",
+					'{"ok":true}',
+				],
+				{ cwd: dir },
+			);
+			expect(published.code === 0, `realtime:publish: ${published.out.slice(-300)}`);
+			const received = await client;
+			expect(received.code === 0, `the socket got no event: ${received.out.slice(-300)}`);
+			notes.push("realtime");
+		}
+
 		if (s.addons.includes("jobs")) {
 			const workerLog = join(logDir, "worker.log");
 			children.push(start(dir, "dist/apps/worker/index.mjs", workerLog));
