@@ -22,6 +22,8 @@ export interface ProjectConfig {
 	packageManager: PackageManager;
 	/** What `tatara new` / `tatara upgrade` last wrote: CLI version and framework file hashes */
 	generated?: { cli: string; files: Record<string, string> };
+	/** packages copied into src/ejected by `tatara eject`: name → version ejected */
+	ejected?: Record<string, string>;
 }
 
 export class NotATataraProject extends Error {

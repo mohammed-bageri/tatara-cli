@@ -44,7 +44,11 @@ export function conventionViolations(dir: string, packageDir: string): string[] 
 		Boolean(main?.types?.startsWith("./dist/") && main?.import?.startsWith("./dist/")),
 		'exports["."] needs types and import under ./dist/',
 	);
-	check(JSON.stringify(pkg.files) === JSON.stringify(["dist"]), 'files must be ["dist"]');
+	// src ships too, so `tatara eject` can copy readable source into an app
+	check(
+		JSON.stringify(pkg.files) === JSON.stringify(["dist", "src", "!src/**/*.test.ts"]),
+		'files must be ["dist", "src", "!src/**/*.test.ts"]',
+	);
 	check(pkg.sideEffects === false, "sideEffects must be false");
 	check(pkg.publishConfig?.access === "public", 'publishConfig.access must be "public"');
 	check(

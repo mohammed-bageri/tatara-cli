@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { glob } from "tinyglobby";
 import { renderApp } from "../engine/generate.ts";
 import type { Project } from "../project/config.ts";
+import { ejectedPackages, pointAtEjected } from "../project/ejected.ts";
 import type { Baseline } from "./baseline.ts";
 
 export interface UpgradeReport {
@@ -52,7 +53,10 @@ export function createContext(
 	};
 	const abs = (path: string) => join(project.root, path);
 	let rendered: Promise<Map<string, string>> | undefined;
-	const write = async (path: string, text: string) => {
+	const ejected = ejectedPackages(project.config);
+	const write = async (path: string, written: string) => {
+		// the app owns ejected packages: new code imports its copy, never the package
+		const text = path.endsWith(".ts") ? pointAtEjected(written, ejected) : written;
 		if (!report.written.includes(path)) {
 			report.written.push(path);
 			const before = existsSync(abs(path)) ? await readFile(abs(path), "utf8") : undefined;
@@ -108,6 +112,11 @@ export function createContext(
 			return (await rendered).get(path);
 		},
 		async addDependency(name, range, { dev = false } = {}) {
+			if (ejected.includes(name.replace(/^@tatara\//, ""))) {
+				const note = `${name} is ejected; it was not added (its code is in src/ejected)`;
+				if (!report.notes.includes(note)) report.notes.push(note);
+				return;
+			}
 			const pkg = JSON.parse(await readFile(abs("package.json"), "utf8")) as Record<
 				string,
 				Record<string, string> | undefined

@@ -6,6 +6,8 @@ export interface Scenario {
 	authMethods?: ("email-otp" | "phone-otp" | "password" | "keycloak" | "orgs")[];
 	addons: ("authz" | "jobs" | "admin" | "storage" | "email" | "i18n")[];
 	pm: "pnpm" | "npm" | "bun";
+	/** after the other steps: `tatara eject <eject> --with-dependents`, then install and verify */
+	eject?: string;
 	flags: string[];
 }
 
@@ -86,6 +88,7 @@ export const SCENARIOS: Scenario[] = [
 		authMethods: ["password"],
 		addons: ["authz"],
 		pm: "pnpm",
+		eject: "http",
 	}),
 	scenario("ba-phone-only", {
 		orm: "prisma",

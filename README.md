@@ -52,6 +52,7 @@ pnpm tatara run --list                               # app commands; tatara run 
 pnpm tatara routes                                   # every route and what protects it
 pnpm tatara doctor                                   # toolchain, services, env, layout
 pnpm tatara upgrade                                  # after bumping @tatara/cli: codemods, sync, verify
+pnpm tatara eject <package> [--with-dependents]     # copy a @tatara/* package into src/ejected and own it
 pnpm tatara tinker                                   # REPL with db and services loaded
 ```
 

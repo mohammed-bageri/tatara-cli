@@ -180,6 +180,44 @@ describe("upgrade", () => {
 		expect(JSON.parse(read(project.root, "tatara.json")).version).toBe("0.1.3");
 	});
 
+	it("leaves ejected packages alone: no dependency, imports point at the app's copy", async () => {
+		const project = fixture({
+			"tatara.json": JSON.stringify({
+				version: "0.1.3",
+				name: "app",
+				orm: "none",
+				database: "none",
+				auth: "none",
+				authMethods: [],
+				addons: [],
+				packageManager: "pnpm",
+				ejected: { http: "0.1.0" },
+			}),
+			"src/modules/x/services/x.ts": 'import { NotFoundError } from "#core/http/errors";\n',
+		});
+		const report = await upgrade(project, {
+			...deps(project),
+			codemods: [
+				{
+					version: "0.1.4",
+					id: "to-http",
+					description: "",
+					run: async (ctx) => {
+						await ctx.addDependency("@tatara/http", "^0.1.0");
+						await ctx.rewriteImports("#core/http/errors", "@tatara/http");
+					},
+				},
+			],
+		});
+		expect(
+			JSON.parse(read(project.root, "package.json")).dependencies["@tatara/http"],
+		).toBeUndefined();
+		expect(read(project.root, "src/modules/x/services/x.ts")).toContain(
+			'from "#ejected/http/index"',
+		);
+		expect(report.notes.join("\n")).toContain("@tatara/http is ejected");
+	});
+
 	it("keeps the old version when a codemod fails", async () => {
 		const project = fixture();
 		const run = upgrade(project, {

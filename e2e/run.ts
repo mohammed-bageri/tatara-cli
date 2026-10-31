@@ -537,7 +537,25 @@ async function runScenario(
 		})) &&
 		(await step("verify after generators", async () => {
 			await sh(pmRun[0] ?? "pnpm", [...pmRun.slice(1), "verify"], "verify-2");
-		}));
+		})) &&
+		(!s.eject ||
+			(await step(`eject ${s.eject}`, async () => {
+				await sh(tatara, ["eject", s.eject as string, "--with-dependents"], "eject");
+				await sh(s.pm, ["install"], "install-after-eject");
+				// new code from generators must import the ejected copy too
+				await sh(tatara, ["make", "route", "receipts", "--module", "billing"], "make-after-eject");
+				await sh(pmRun[0] ?? "pnpm", [...pmRun.slice(1), "verify"], "verify-3");
+				const leftover = await sh(
+					"grep",
+					["-rln", `"@tatara/${s.eject}"`, "src", "tests"],
+					"grep-ejected",
+				).catch(() => "");
+				if (leftover.trim()) throw new Error(`still importing @tatara/${s.eject}: ${leftover}`);
+				const ejected = (
+					JSON.parse(readFileSync(join(dir, "tatara.json"), "utf8")) as { ejected?: object }
+				).ejected;
+				return Object.keys(ejected ?? {}).join(", ");
+			})));
 
 	if (!keep) {
 		await run("docker", ["compose", "down", "--volumes", "--remove-orphans"], { cwd: dir });

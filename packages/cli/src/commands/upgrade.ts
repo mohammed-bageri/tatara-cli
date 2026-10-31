@@ -21,7 +21,7 @@ export interface UpgradeOptions {
 	formatFile?: (file: string, project: Project) => Promise<void>;
 }
 
-async function biomeFormat(file: string, project: Project): Promise<void> {
+export async function biomeFormat(file: string, project: Project): Promise<void> {
 	const biome = join(project.root, "node_modules", ".bin", "biome");
 	if (!existsSync(biome)) return;
 	await x(biome, ["check", "--write", file], {

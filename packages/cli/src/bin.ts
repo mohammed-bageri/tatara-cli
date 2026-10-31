@@ -6,11 +6,12 @@ import { check } from "./commands/check.ts";
 import { DbError, dbGenerate, dbMigrate, dbReset, dbSeed, dbStudio } from "./commands/db.ts";
 import { dev } from "./commands/dev.ts";
 import { doctor, printDoctor } from "./commands/doctor.ts";
+import { EjectError, eject } from "./commands/eject.ts";
 import { newApp } from "./commands/new.ts";
 import { listRoutes, printRoutes } from "./commands/routes.ts";
 import { sync } from "./commands/sync.ts";
 import { tinker } from "./commands/tinker.ts";
-import { printUpgrade, upgrade } from "./commands/upgrade.ts";
+import { biomeFormat, printUpgrade, upgrade } from "./commands/upgrade.ts";
 import { verify } from "./commands/verify.ts";
 import { OptionsError } from "./engine/resolve.ts";
 import { GENERATORS, GeneratorError, type GeneratorKind, generate } from "./generators/index.ts";
@@ -196,6 +197,26 @@ program
 	});
 
 program
+	.command("eject <package>")
+	.description("Copy a @tatara/* package's source into src/ejected; the app owns it from then on")
+	.option("--with-dependents", "also eject installed @tatara/* packages that depend on it")
+	.action(async (name: string, flags: { withDependents?: boolean }) => {
+		const project = loadProject();
+		const report = await eject(project, name, {
+			withDependents: flags.withDependents,
+			formatFile: biomeFormat,
+		});
+		const names = report.ejected.map((n) => `@tatara/${n}`).join(", ");
+		console.log(pc.green(`ejected ${names} into src/ejected (${report.copied.length} files)`));
+		if (report.rewritten.length > 0)
+			console.log(`  ${report.rewritten.length} files now import the ejected copy`);
+		if (report.added.length > 0) console.log(`  added dependencies: ${report.added.join(", ")}`);
+		console.log(
+			`  run your package manager's install, then verify; tatara upgrade skips ${names} from now on`,
+		);
+	});
+
+program
 	.command("doctor")
 	.description("Check the toolchain, services, env and layout")
 	.option("--json", "machine-readable output")
@@ -209,6 +230,7 @@ program
 program.parseAsync().catch((error: unknown) => {
 	if (
 		error instanceof OptionsError ||
+		error instanceof EjectError ||
 		error instanceof NotATataraProject ||
 		error instanceof GeneratorError ||
 		error instanceof DbError

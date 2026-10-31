@@ -9,6 +9,7 @@ import { fillSlots, type SlotFill } from "../engine/slots.ts";
 import { TEMPLATES_DIR } from "../paths.ts";
 import { pmCommands } from "../pm.ts";
 import type { Project } from "../project/config.ts";
+import { ejectedPackages, pointAtEjected } from "../project/ejected.ts";
 
 export const GENERATORS = [
 	"module",
@@ -220,7 +221,7 @@ export async function generate(
 	for (const [rel, text] of rendered) {
 		const full = join(project.root, rel);
 		await mkdir(dirname(full), { recursive: true });
-		await writeFile(full, text);
+		await writeFile(full, pointAtEjected(text, ejectedPackages(project.config)));
 	}
 	if (!request.skipPostProcess) await postProcess(project, files);
 	return { kind: request.kind, files, dryRun: false };

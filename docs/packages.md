@@ -22,7 +22,7 @@ This writes `packages/<name>/` with `package.json`, `tsconfig.json`, `tsdown.con
 | `name` | `@tatara/<dir>` |
 | `type` | `"module"` |
 | `exports` | `"."` with `types` and `import` under `./dist/` |
-| `files` | exactly `["dist"]` |
+| `files` | exactly `["dist", "src", "!src/**/*.test.ts"]` (source ships for `tatara eject`) |
 | `sideEffects` | `false`: importing a package does no work |
 | `publishConfig.access` | `"public"` |
 | `repository.directory` | `packages/<dir>` |

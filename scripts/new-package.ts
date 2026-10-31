@@ -44,7 +44,7 @@ const pkg = {
 	license: "MIT",
 	sideEffects: false,
 	exports: { ".": { types: "./dist/index.d.mts", import: "./dist/index.mjs" } },
-	files: ["dist"],
+	files: ["dist", "src", "!src/**/*.test.ts"],
 	engines: { node: ">=24" },
 	scripts: { build: "tsdown", typecheck: "tsc --noEmit" },
 	...(peers.length ? { peerDependencies, devDependencies: peerDependencies } : {}),
