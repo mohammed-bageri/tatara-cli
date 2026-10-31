@@ -64,10 +64,14 @@ interface PrismaAuthzClient {
 
 /**
  * The AuthzStore for Prisma, over the app's client. Prisma generates the client's type per app,
- * so it comes in unchecked; the e2e matrix runs the store against real clients.
+ * so only the models' presence is checked here; the e2e matrix runs the store against real clients.
  */
-export function prismaAuthzStore(client: unknown): AuthzStore {
-	const db = client as PrismaAuthzClient;
+export function prismaAuthzStore(
+	client: {
+		[K in keyof PrismaAuthzClient]: unknown;
+	},
+): AuthzStore {
+	const db = client as unknown as PrismaAuthzClient;
 	const toScope = (scope: string): Scope | null => (scope === "" ? null : (scope as Scope));
 
 	function toOverlay(row: OverlayRecord): OverlayRow {

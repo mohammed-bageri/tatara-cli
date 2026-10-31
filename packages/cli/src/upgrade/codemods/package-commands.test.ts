@@ -60,3 +60,46 @@ it("removes unchanged command copies, keeps customised or imported ones", async 
 	expect(existsSync(join(root, "src/core/db/commands/reset.ts"))).toBe(true);
 	expect(report.notes.join("\n")).toContain("tests/reset.test.ts import it");
 });
+
+it("leaves the copies of an ejected package alone: its old copy contributes nothing", async () => {
+	const root = mkdtempSync(join(tmpdir(), "tatara-package-commands-ejected-"));
+	const generated = { "src/core/jobs/commands/enqueue.ts": "// tatara's\n" };
+	const files: Record<string, string> = {
+		...generated,
+		"package.json": "{}",
+		"tatara.json": JSON.stringify({
+			version: "0.8.0",
+			name: "app",
+			orm: "none",
+			database: "none",
+			auth: "none",
+			authMethods: [],
+			addons: ["jobs"],
+			packageManager: "pnpm",
+			ejected: { jobs: "0.1.0" },
+			generated: {
+				cli: "0.8.0",
+				files: Object.fromEntries(Object.entries(generated).map(([p, t]) => [p, hashContent(t)])),
+			},
+		}),
+	};
+	for (const [path, text] of Object.entries(files)) {
+		mkdirSync(dirname(join(root, path)), { recursive: true });
+		writeFileSync(join(root, path), text);
+	}
+	const project = loadProject(root);
+	const report = await upgrade(project, {
+		cliVersion: "0.9.0",
+		codemods: [packageCommands],
+		baseline: {
+			async isUnchanged(path, content) {
+				return project.config.generated?.files[path] === hashContent(content);
+			},
+		},
+		runSync: async () => {},
+		runInstall: async () => {},
+		formatFile: async () => {},
+	});
+	expect(report.removed).toEqual([]);
+	expect(existsSync(join(root, "src/core/jobs/commands/enqueue.ts"))).toBe(true);
+});

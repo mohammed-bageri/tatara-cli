@@ -1,3 +1,4 @@
+import { ejectedPackages } from "../../project/ejected.ts";
 import type { Codemod } from "../codemods.ts";
 import { sourceFiles } from "./groups.ts";
 import { importsOf } from "./imports.ts";
@@ -25,8 +26,11 @@ export const packageCommands: Codemod = {
 		const sources = await sourceFiles(ctx);
 		const texts = new Map<string, string>();
 		for (const path of sources) texts.set(path, await ctx.read(path));
+		// an ejected copy from before 0.9 declares no commands, so the app's copies are still needed
+		const ejected = ejectedPackages(ctx.project.config);
 		for (const path of COPIES) {
 			if (!texts.has(path)) continue;
+			if (ejected.includes(path.split("/")[2] ?? "")) continue;
 			// a customised copy stays, and sync lets it win over the package's command of the same name
 			const importers = [...texts].filter(
 				([other, text]) => other !== path && importsOf(text, specifierOf(path)),

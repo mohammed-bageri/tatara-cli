@@ -261,7 +261,7 @@ describe("upgrade", () => {
 		expect(order).toEqual(["install", "sync"]);
 	});
 
-	it("skips install when package.json did not change", async () => {
+	it("installs even when package.json did not change, so a re-run after a failed install works", async () => {
 		const project = fixture();
 		const order: string[] = [];
 		await upgrade(project, {
@@ -270,7 +270,61 @@ describe("upgrade", () => {
 			runInstall: async () => void order.push("install"),
 			runSync: async () => void order.push("sync"),
 		});
-		expect(order).toEqual(["sync"]);
+		expect(order).toEqual(["install", "sync"]);
+	});
+
+	it("keeps the old version when the install fails", async () => {
+		const project = fixture();
+		await expect(
+			upgrade(project, {
+				...deps(project),
+				codemods: [],
+				runInstall: async () => {
+					throw new Error("network");
+				},
+			}),
+		).rejects.toThrow("network");
+		expect(JSON.parse(read(project.root, "tatara.json")).version).toBe("0.1.3");
+	});
+
+	it("only raises plain ^ ranges: never lowers them or touches pins and file: specs", async () => {
+		const project = fixture({
+			"package.json": JSON.stringify({
+				name: "app",
+				dependencies: {
+					"@tatara/core": "^99.0.0",
+					"@tatara/http": "file:../http.tgz",
+					"@tatara/db": "0.0.1",
+				},
+			}),
+		});
+		await upgrade(project, { ...deps(project), codemods: [] });
+		expect(JSON.parse(read(project.root, "package.json")).dependencies).toEqual({
+			"@tatara/core": "^99.0.0",
+			"@tatara/http": "file:../http.tgz",
+			"@tatara/db": "0.0.1",
+		});
+	});
+
+	it("regenerate keeps a no-longer-generated file that other code still imports", async () => {
+		const project = fixture({
+			"src/modules/x/services/x.ts": 'import { NotFoundError } from "#core/http/errors";\n',
+		});
+		const report = await upgrade(project, {
+			...deps(project),
+			codemods: [
+				{
+					version: "0.1.4",
+					id: "regen",
+					description: "",
+					run: async (ctx) => {
+						expect(await ctx.regenerate("src/core/http/errors.ts")).toBe("kept");
+					},
+				},
+			],
+		});
+		expect(report.removed).toEqual([]);
+		expect(report.notes.join("\n")).toContain("src/modules/x/services/x.ts");
 	});
 
 	it("keeps the old version when a codemod fails", async () => {

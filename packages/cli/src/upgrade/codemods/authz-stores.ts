@@ -1,3 +1,4 @@
+import { ejectedPackages } from "../../project/ejected.ts";
 import type { Codemod } from "../codemods.ts";
 import { applyGroup, blockersOf, type Group, sourceFiles } from "./groups.ts";
 
@@ -15,6 +16,12 @@ export const authzStores: Codemod = {
 	description: "Use the Prisma or Drizzle authz store from @tatara/authz",
 	async run(ctx) {
 		if (!ctx.project.config.addons.includes("authz")) return;
+		if (ejectedPackages(ctx.project.config).includes("authz")) {
+			ctx.report.notes.push(
+				"@tatara/authz is ejected; its store stays in src/core/authz/db/store.ts",
+			);
+			return;
+		}
 		const blockers = await blockersOf(ctx, group, await sourceFiles(ctx));
 		if (blockers.length > 0) {
 			ctx.report.notes.push(

@@ -76,6 +76,18 @@ describe("0.9.0 authz-stores codemod", () => {
 		expect(report.blocked).toEqual(["authz-stores"]);
 	});
 
+	it("leaves an app that ejected authz alone", async () => {
+		const project = app("prisma", {
+			"tatara.json": JSON.stringify({
+				...JSON.parse(readFileSync(join(app("prisma").root, "tatara.json"), "utf8")),
+				ejected: { authz: "0.1.0" },
+			}),
+		});
+		const report = await run(loadProject(project.root));
+		expect(report.removed).toEqual([]);
+		expect(report.notes.join("\n")).toContain("@tatara/authz is ejected");
+	});
+
 	it("keeps the store when other code imports it", async () => {
 		const project = app("prisma", {
 			"src/modules/x/services/x.ts": 'import { store } from "#core/authz/db/store";\n',

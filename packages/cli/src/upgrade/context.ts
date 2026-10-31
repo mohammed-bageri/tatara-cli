@@ -6,6 +6,7 @@ import { renderApp } from "../engine/generate.ts";
 import type { Project } from "../project/config.ts";
 import { ejectedPackages, pointAtEjected } from "../project/ejected.ts";
 import type { Baseline } from "./baseline.ts";
+import { importsOf } from "./codemods/imports.ts";
 
 export interface UpgradeReport {
 	ran: string[];
@@ -115,7 +116,23 @@ export function createContext(
 		},
 		async regenerate(path) {
 			const next = await ctx.renderCurrent(path);
-			if (next === undefined) return ctx.removeIfUnchanged(path);
+			if (next === undefined) {
+				// no longer generated, but still imported: removing it would break the importer
+				const spec = `#${path.replace(/^src\//, "").replace(/\.ts$/, "")}`;
+				const importers: string[] = [];
+				for (const other of await glob(["src/**/*.ts", "tests/**/*.ts"], {
+					cwd: project.root,
+					ignore: ["src/generated/**"],
+				})) {
+					if (other !== path && importsOf(await readFile(abs(other), "utf8"), spec))
+						importers.push(other);
+				}
+				if (importers.length > 0) {
+					report.notes.push(`${path} was kept: ${importers.join(", ")} import it.`);
+					return "kept";
+				}
+				return ctx.removeIfUnchanged(path);
+			}
 			await write(path, next);
 			return "written";
 		},

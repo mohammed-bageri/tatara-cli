@@ -47,8 +47,12 @@ async function bumpPackages(ctx: UpgradeContext): Promise<void> {
 		)) {
 			// the app picks the CLI it upgrades with
 			if (!name.startsWith("@tatara/") || name === "@tatara/cli" || !(name in known)) continue;
+			// raise plain ^x.y.z ranges only; pins, file: specs and newer ranges are the app's choice
+			const current = /^\^(\d+\.\d+\.\d+)$/.exec(range)?.[1];
 			const next = versionOf(name);
-			if (next !== range) await ctx.addDependency(name, next, { dev });
+			const shipped = /^\^(\d+\.\d+\.\d+)$/.exec(next)?.[1];
+			if (!current || !shipped || compareVersions(current, shipped) >= 0) continue;
+			await ctx.addDependency(name, next, { dev });
 		}
 	}
 }
@@ -116,8 +120,8 @@ export async function upgrade(project: Project, opts: UpgradeOptions = {}): Prom
 
 	const format = opts.formatFile ?? biomeFormat;
 	for (const path of ctx.report.written) await format(path, project);
-	// new or bumped packages must be installed before sync and verify can import them
-	if (ctx.report.written.includes("package.json")) await (opts.runInstall ?? pmInstall)(project);
+	// always: an earlier run may have bumped package.json and then failed to install
+	await (opts.runInstall ?? pmInstall)(project);
 	await (opts.runSync ?? sync)(project);
 	const path = join(project.root, "tatara.json");
 	const config = JSON.parse(await readFile(path, "utf8")) as ProjectConfig;
