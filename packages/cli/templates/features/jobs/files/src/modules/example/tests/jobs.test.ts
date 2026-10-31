@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { withLock } from "#core/jobs/lock";
-import { processJob } from "#core/jobs/process";
+import { processJob, withLock } from "@tatara/jobs";
+import { redis } from "#core/jobs/index";
 import { logger } from "#core/logging/logger";
 import { consumers } from "#generated/consumers";
 
@@ -20,8 +20,8 @@ describe("jobs", () => {
 	it("lets only one holder run a locked section", async () => {
 		const key = `test-${Date.now()}-${Math.random()}`;
 		let inner: boolean | undefined;
-		const outer = await withLock(key, 5000, async () => {
-			inner = await withLock(key, 5000, async () => {});
+		const outer = await withLock(redis(), key, 5000, async () => {
+			inner = await withLock(redis(), key, 5000, async () => {});
 		});
 		expect(outer).toBe(true);
 		expect(inner).toBe(false);

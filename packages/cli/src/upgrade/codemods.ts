@@ -1,3 +1,4 @@
+import { addonPackages } from "./codemods/addon-packages.ts";
 import { authPackage } from "./codemods/auth-package.ts";
 import { authzPackage } from "./codemods/authz-package.ts";
 import { corePackage } from "./codemods/core-package.ts";
@@ -24,4 +25,5 @@ export const CODEMODS: readonly Codemod[] = [
 	dbTesting,
 	authPackage,
 	authzPackage,
+	addonPackages,
 ];

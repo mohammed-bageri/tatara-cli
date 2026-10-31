@@ -105,7 +105,7 @@ export async function sync(project: Project = loadProject()): Promise<SyncResult
 			join(out, "consumers.ts"),
 			listModule(consumers, {
 				prefix: "consumer",
-				typeImport: 'import type { ConsumerDefinition } from "#core/jobs/define";',
+				typeImport: 'import type { ConsumerDefinition } from "@tatara/jobs";',
 				typeName: "ConsumerDefinition",
 				exportName: "consumers",
 			}),
@@ -119,7 +119,7 @@ export async function sync(project: Project = loadProject()): Promise<SyncResult
 			join(out, "schedules.ts"),
 			listModule(schedules, {
 				prefix: "schedule",
-				typeImport: 'import type { ScheduleDefinition } from "#core/jobs/define";',
+				typeImport: 'import type { ScheduleDefinition } from "@tatara/jobs";',
 				typeName: "ScheduleDefinition",
 				exportName: "schedules",
 			}),

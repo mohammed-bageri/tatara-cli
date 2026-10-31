@@ -1,4 +1,4 @@
-import { defineSchedule } from "#core/jobs/define";
+import { defineSchedule } from "@tatara/jobs";
 
 export default defineSchedule({
 	name: "__moduleKebab__.__nameKebab__",

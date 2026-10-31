@@ -52,7 +52,7 @@ export const jobs: Feature = {
 	id: "jobs",
 	kind: "addon",
 	label: "Jobs + cron (BullMQ)",
-	dependencies: ["bullmq", "ioredis", "croner"],
+	dependencies: ["@tatara/jobs", "bullmq", "ioredis", "croner"],
 	allowBuilds: ["msgpackr-extract"],
 	scripts: {
 		"start:worker": "node dist/apps/worker/index.mjs",
@@ -116,8 +116,8 @@ export const jobs: Feature = {
 			slot: "sections",
 			content: `## Jobs and schedules
 
-- Background work: \`enqueue(topic, payload)\` from \`#core/jobs/queue\`; a module handles it in
-  \`consumers/<name>.ts\` (\`defineConsumer({ topic, schema, handle })\`). Payloads are validated by the
+- Background work: \`enqueue(topic, payload)\` from \`#core/jobs/index\`; a module handles it in
+  \`consumers/<name>.ts\` (\`defineConsumer({ topic, schema, handle })\` from \`@tatara/jobs\`). Payloads are validated by the
   consumer's zod schema. Handlers must be idempotent: jobs retry.
 - Recurring work: \`schedules/<name>.ts\` (\`defineSchedule({ name, cron, run })\`). A Redis lock makes
   each tick run once across every cron process.
@@ -179,7 +179,7 @@ export const storage: Feature = {
 	id: "storage",
 	kind: "addon",
 	label: "File storage",
-	dependencies: ["@aws-sdk/client-s3", "@aws-sdk/s3-request-presigner"],
+	dependencies: ["@tatara/storage", "@aws-sdk/client-s3", "@aws-sdk/s3-request-presigner"],
 	env: [
 		{
 			key: "STORAGE_DRIVER",
@@ -247,7 +247,7 @@ export const email: Feature = {
 	id: "email",
 	kind: "addon",
 	label: "Email",
-	dependencies: ["nodemailer"],
+	dependencies: ["@tatara/email", "nodemailer"],
 	devDependencies: ["@types/nodemailer"],
 	env: [
 		{
@@ -298,6 +298,7 @@ export const i18n: Feature = {
 	id: "i18n",
 	kind: "addon",
 	label: "i18n",
+	dependencies: ["@tatara/i18n"],
 	env: [{ key: "DEFAULT_LANGUAGE", schema: 'z.enum(["en", "ar"]).default("en")', example: "en" }],
 	slots: [
 		{

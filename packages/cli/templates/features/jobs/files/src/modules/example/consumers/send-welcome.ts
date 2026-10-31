@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineConsumer } from "#core/jobs/define";
+import { defineConsumer } from "@tatara/jobs";
 
 export default defineConsumer({
 	topic: "example.send-welcome",

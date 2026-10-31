@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineConsumer } from "#core/jobs/define";
+import { defineConsumer } from "@tatara/jobs";
 
 export const __nameCamel__Payload = z.object({ id: z.string().min(1) });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { processJob } from "#core/jobs/process";
+import { processJob } from "@tatara/jobs";
 import { logger } from "#core/logging/logger";
 import { consumers } from "#generated/consumers";
 

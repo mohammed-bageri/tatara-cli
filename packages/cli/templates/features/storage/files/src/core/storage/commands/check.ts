@@ -1,13 +1,13 @@
 import { defineCommand } from "@tatara/core";
 import { env } from "#core/config/env";
-import { storage } from "#core/storage/index";
-import { ensureBucket } from "#core/storage/s3";
+import { ensureBucket } from "@tatara/storage/s3";
+import { s3, storage } from "#core/storage/index";
 
 export default defineCommand({
 	name: "storage:check",
 	description: "Create the bucket if needed, then write, read and delete a probe object",
 	async run(_args, { logger }) {
-		if (env.STORAGE_DRIVER === "s3" && (await ensureBucket())) logger.info({ bucket: env.S3_BUCKET }, "bucket created");
+		if (env.STORAGE_DRIVER === "s3" && (await ensureBucket(s3, env.S3_BUCKET))) logger.info({ bucket: env.S3_BUCKET }, "bucket created");
 		const key = `tatara-check/${Date.now()}.txt`;
 		await storage.put(key, "ok", "text/plain");
 		const body = await storage.get(key);
