@@ -1,5 +1,5 @@
 ---
-"@tatara/http": minor
+"@tatara/http": patch
 "@tatara/cli": minor
 "create-tatara": minor
 ---

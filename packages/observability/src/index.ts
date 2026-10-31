@@ -42,8 +42,10 @@ export function startTelemetry(options: TelemetryOptions): NodeSDK | null {
 				exportIntervalMillis: options.metricsIntervalMs ?? 60_000,
 			}),
 		],
+		// a caller's "sampled" flag can't push sampling past the ratio (it would bill you for its traffic)
 		sampler: new ParentBasedSampler({
 			root: new TraceIdRatioBasedSampler(options.sampleRatio ?? 1),
+			remoteParentSampled: new TraceIdRatioBasedSampler(options.sampleRatio ?? 1),
 		}),
 		instrumentations:
 			options.autoInstrument === false
@@ -52,6 +54,8 @@ export function startTelemetry(options: TelemetryOptions): NodeSDK | null {
 						getNodeAutoInstrumentations({
 							// noisy, and file reads are rarely what's slow
 							"@opentelemetry/instrumentation-fs": { enabled: false },
+							// httpTracing makes the server span, with the route; one per request is enough
+							"@opentelemetry/instrumentation-http": { ignoreIncomingRequestHook: () => true },
 						}),
 					],
 	});

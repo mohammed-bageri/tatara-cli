@@ -1,8 +1,10 @@
 import { z } from "zod";
 
-// C0/C1 controls except tab and newline, and the invisible characters that reorder or hide text
-const CONTROL = /(?![\t\n])\p{Cc}/gu;
-const INVISIBLE = /[\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/g;
+// controls but tab, newline and carriage return (normalized below)
+const CONTROL = /(?![\t\n\r])\p{Cc}/gu;
+// format characters (bidi marks, soft hyphens, tags that smuggle text, zero-width…) except the
+// joiners Persian and emoji need, and the blank "letters" (Hangul fillers) that look like nothing
+const INVISIBLE = /(?![\u200C\u200D])\p{Cf}|[\u034F\u115F\u1160\u3164\uFFA0]/gu;
 
 export interface CleanTextOptions {
 	/** keep newlines (collapsing runs of blank lines); otherwise everything is one line */
@@ -35,6 +37,8 @@ export function safeUrl(
 ): string | null {
 	try {
 		const url = new URL(input.trim());
+		// https://bank.com@evil.com reads as the bank; credentials don't belong in stored links
+		if (url.username || url.password) return null;
 		return protocols.includes(url.protocol) ? url.toString() : null;
 	} catch {
 		return null;

@@ -85,8 +85,23 @@ export async function truncateAllTables(url: string): Promise<void> {
 export function commandLedger(url: string): {
 	completed(): Promise<Set<string>>;
 	record(run: { name: string; phase: "deploy" | "once"; durationMs: number }): Promise<void>;
+	exclusive<T>(fn: () => Promise<T>): Promise<T>;
 } {
 	return {
+		// a named lock on its own connection, held while the deploy runs (waits up to 10 min)
+		exclusive: (fn) =>
+			withConnection(adminConfig(url), async (c) => {
+				const rows: { got: number }[] = await c.query(
+					"select get_lock('tatara:deploy', 600) as got",
+				);
+				const got = Number(rows[0]?.got);
+				if (Number(got) !== 1) throw new Error("another deploy is still running");
+				try {
+					return await fn();
+				} finally {
+					await c.query("select release_lock('tatara:deploy')");
+				}
+			}),
 		completed: () =>
 			withConnection(adminConfig(url), async (c) => {
 				const rows: { name: string }[] = await c.query(

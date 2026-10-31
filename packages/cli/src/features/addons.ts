@@ -755,7 +755,7 @@ export const observability: Feature = {
 			file: "Dockerfile",
 			slot: "docker-runtime",
 			order: 60,
-			content: 'ENV NODE_OPTIONS="--import ./dist/apps/instrument.mjs"',
+			content: 'ENV NODE_OPTIONS="--import /app/dist/apps/instrument.mjs"',
 		},
 		{
 			file: "src/apps/http.ts",

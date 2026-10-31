@@ -1,7 +1,7 @@
 ---
-"@tatara/core": minor
-"@tatara/db": minor
-"@tatara/authz": minor
+"@tatara/core": patch
+"@tatara/db": patch
+"@tatara/authz": patch
 "@tatara/observability": minor
 "@tatara/cli": minor
 "create-tatara": minor

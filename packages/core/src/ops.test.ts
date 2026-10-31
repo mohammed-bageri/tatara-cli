@@ -42,6 +42,9 @@ describe("encryption", () => {
 		).toThrow();
 		expect(() => e.decrypt("plain")).toThrow(/unknown format/);
 		expect(() => createEncryption("k1:c2hvcnQ=")).toThrow(/32 bytes/);
+		expect(() => createEncryption(`k1:${key(1)},k1:${key(2)}`)).toThrow(/twice/);
+		// a value cut short (no full tag) is refused, whatever Node allows
+		expect(() => e.decrypt(`${parts.slice(0, 3).join(".")}.AAAA`)).toThrow();
 	});
 });
 
@@ -70,7 +73,17 @@ describe("text", () => {
 		expect(cleanText("é")).toBe("é");
 	});
 
+	it("strips every format character but the joiners scripts and emoji need", () => {
+		const sneaky = "a\u061Cb\u00ADc\u180Ed\u{E0041}e\uFFF9f\u3164g\u034Fh";
+		expect(cleanText(sneaky)).toBe("abcdefgh");
+		// ZWNJ (Persian) and ZWJ (emoji sequences) stay
+		expect(cleanText("می\u200Cخواهم 👨\u200D👩")).toBe("می\u200Cخواهم 👨\u200D👩");
+		expect(cleanText("a\rb", { multiline: true })).toBe("a\nb");
+	});
+
 	it("keeps only http(s) links", () => {
+		expect(safeUrl("https://google.com@evil.com/")).toBeNull();
+		expect(safeUrl("https://user:pass@x.com/")).toBeNull();
 		expect(safeUrl("https://example.com/a b")).toBe("https://example.com/a%20b");
 		expect(safeUrl("javascript:alert(1)")).toBeNull();
 		expect(safeUrl("data:text/html,x")).toBeNull();
@@ -125,6 +138,78 @@ describe("deploy", () => {
 		expect(await runCommand(commands, ["deploy"], logger, { ledger })).toBe(0);
 		expect(await runCommand(commands, ["deploy"], logger, { ledger })).toBe(0);
 		expect(ran).toEqual(["sync", "seed", "sync"]);
+	});
+
+	it("fails the deploy, logged, when the ledger can't record, and runs nothing it can't run", async () => {
+		const broken: CommandLedger = {
+			completed: async () => new Set(),
+			record: async () => {
+				throw new Error("no such table");
+			},
+		};
+		const ran: string[] = [];
+		const commands = [
+			defineCommand({
+				name: "a:once",
+				description: "",
+				phase: "once",
+				run: () => void ran.push("once"),
+			}),
+		];
+		expect(await runCommand(commands, ["deploy"], logger, { ledger: broken })).toBe(1);
+		const needsArgs = [
+			defineCommand({
+				name: "a:first",
+				description: "",
+				phase: "deploy",
+				order: 1,
+				run: () => void ran.push("first"),
+			}),
+			defineCommand({
+				name: "b:args",
+				description: "",
+				phase: "deploy",
+				order: 2,
+				args: z.object({ id: z.string() }),
+				run: () => void ran.push("args"),
+			}),
+		];
+		ran.length = 0;
+		expect(await runCommand(needsArgs, ["deploy"], logger, { ledger: memoryLedger() })).toBe(1);
+		expect(ran).toEqual([]);
+	});
+
+	it("runs one deploy at a time when the ledger can lock", async () => {
+		let held = false;
+		let overlapped = false;
+		const ledger: CommandLedger = {
+			...memoryLedger(),
+			async exclusive(fn) {
+				while (held) await new Promise((r) => setTimeout(r, 5));
+				held = true;
+				try {
+					return await fn();
+				} finally {
+					held = false;
+				}
+			},
+		};
+		let inside = 0;
+		const commands = [
+			defineCommand({
+				name: "a:slow",
+				description: "",
+				phase: "once",
+				async run() {
+					inside++;
+					if (inside > 1) overlapped = true;
+					await new Promise((r) => setTimeout(r, 30));
+					inside--;
+				},
+			}),
+		];
+		await Promise.all([1, 2].map(() => runCommand(commands, ["deploy"], logger, { ledger })));
+		expect(overlapped).toBe(false);
 	});
 
 	it("stops at the first failure and records nothing for it", async () => {

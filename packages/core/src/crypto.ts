@@ -59,6 +59,8 @@ export function createEncryption(keys: string): Encryption {
 				throw new Error("Encryption keys are id:base64, each key 32 bytes");
 			return [id, key] as const;
 		});
+	if (new Set(parsed.map(([id]) => id)).size !== parsed.length)
+		throw new Error("An encryption key id is listed twice");
 	const current = parsed[0];
 	if (!current) throw new Error("No encryption key");
 	const byId = new Map(parsed);
@@ -79,7 +81,10 @@ export function createEncryption(keys: string): Encryption {
 			const key = byId.get(id);
 			if (version !== "enc1" || !key) throw new Error("Can't decrypt: unknown format or key");
 			const data = Buffer.from(body, "base64url");
-			const decipher = createDecipheriv("aes-256-gcm", key, Buffer.from(iv, "base64url"));
+			if (data.length < 16) throw new Error("Can't decrypt: too short");
+			const decipher = createDecipheriv("aes-256-gcm", key, Buffer.from(iv, "base64url"), {
+				authTagLength: 16,
+			});
 			decipher.setAAD(Buffer.from(id));
 			decipher.setAuthTag(data.subarray(data.length - 16));
 			return Buffer.concat([

@@ -55,6 +55,7 @@ export async function truncateAllTables(url: string): Promise<void> {
 export function commandLedger(url: string): {
 	completed(): Promise<Set<string>>;
 	record(run: { name: string; phase: "deploy" | "once"; durationMs: number }): Promise<void>;
+	exclusive<T>(fn: () => Promise<T>): Promise<T>;
 } {
 	const ensure = (client: pg.Client) =>
 		client
@@ -65,6 +66,16 @@ export function commandLedger(url: string): {
 				),
 			);
 	return {
+		// a session advisory lock on its own connection, held while the deploy runs
+		exclusive: (fn) =>
+			withClient(url, async (client) => {
+				await client.query("select pg_advisory_lock(hashtext('tatara:deploy'))");
+				try {
+					return await fn();
+				} finally {
+					await client.query("select pg_advisory_unlock(hashtext('tatara:deploy'))");
+				}
+			}),
 		completed: () =>
 			withClient(url, async (client) => {
 				await ensure(client);
