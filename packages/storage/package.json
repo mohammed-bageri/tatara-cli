@@ -1,6 +1,6 @@
 {
 	"name": "@tatara/storage",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "tatara storage: a small Storage contract with local and S3 drivers",
 	"type": "module",
 	"license": "MIT",
