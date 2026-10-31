@@ -27,10 +27,14 @@ describe("validateOptions", () => {
 			{ auth: "none" as const, authMethods: [], addons: ["authz" as const] },
 			/needs an auth provider/,
 		],
-		[{ addons: ["admin" as const] }, /"orgs" or "keycloak" method/],
 	])("rejects %o", (patch, message) => {
 		expect(() => validateOptions({ ...base, ...patch })).toThrow(OptionsError);
 		expect(() => validateOptions({ ...base, ...patch })).toThrow(message);
+	});
+
+	it("accepts the admin add-on with any sign-in method: staff carry their own roles", () => {
+		const options = { ...base, authMethods: ["password" as const], addons: ["admin" as const] };
+		expect(validateOptions(options)).toEqual(options);
 	});
 
 	it("selects shared features alongside the chosen ones", () => {

@@ -109,3 +109,29 @@ describe("requireOrg", () => {
 		).toBe(403);
 	});
 });
+
+describe("an instance whose principals act in one fixed org", () => {
+	it("sets that org on every principal, e.g. staff in the platform org", async () => {
+		const staff = createAuthInstance(
+			{
+				secret: "test-secret-that-is-at-least-32-characters",
+				baseURL: "http://localhost",
+				database: memoryAdapter({ user: [], session: [], account: [], verification: [] }),
+				plugins: [bearer()],
+			},
+			{ org: "platform" },
+		);
+		const hono = createApp<Env>({
+			logger: pino({ level: "silent" }),
+			cors: { origins: [] },
+			bodyLimitBytes: 1024,
+			defaults: { principal: null },
+		});
+		hono.use(staff.attachPrincipal);
+		hono.get("/me", (c) => c.json(currentPrincipal(c)));
+		handleErrors(hono);
+		const userId = await createTestUser(staff.auth);
+		const res = await hono.request("/me", { headers: await sessionHeaders(staff.auth, userId) });
+		expect(await res.json()).toMatchObject({ userId, orgId: "platform", orgRole: null });
+	});
+});

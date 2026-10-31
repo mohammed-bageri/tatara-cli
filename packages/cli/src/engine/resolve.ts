@@ -39,16 +39,6 @@ export function validateOptions(input: AppOptions): AppOptions {
 		if (addon === "authz" && !hasDb) {
 			throw new OptionsError("The authz add-on needs a database.");
 		}
-		if (
-			addon === "admin" &&
-			options.auth === "better-auth" &&
-			!options.authMethods.includes("orgs") &&
-			!options.authMethods.includes("keycloak")
-		) {
-			throw new OptionsError(
-				'The admin add-on with better-auth needs the "orgs" or "keycloak" method (they provide user roles).',
-			);
-		}
 	}
 	return options;
 }

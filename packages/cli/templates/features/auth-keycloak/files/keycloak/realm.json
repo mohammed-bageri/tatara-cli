@@ -14,6 +14,10 @@
 			{
 				"name": "admin",
 				"description": "Administrator"
+			},
+			{
+				"name": "staff",
+				"description": "Internal staff: can use the admin app"
 			}
 		]
 	},
@@ -89,7 +93,8 @@
 			],
 			"realmRoles": [
 				"user",
-				"admin"
+				"admin",
+				"staff"
 			]
 		},
 		{

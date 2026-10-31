@@ -15,6 +15,11 @@ export class OrgRequiredError extends AppError {
 export interface AuthInstanceOptions<A> {
 	/** other credentials besides the session, tried in order (e.g. Keycloak tokens) */
 	resolvers?: ((auth: A) => PrincipalResolver)[];
+	/**
+	 * Every principal of this instance acts in this org, e.g. internal staff in "platform": their
+	 * permissions live apart from any customer org's.
+	 */
+	org?: string;
 }
 
 /**
@@ -28,11 +33,23 @@ export function createAuthInstance<O extends BetterAuthOptions>(
 ) {
 	const auth = betterAuth(options);
 
+	const inOrg = (resolve: PrincipalResolver): PrincipalResolver =>
+		extra.org
+			? async (c) => {
+					const principal = await resolve(c);
+					return principal ? { ...principal, orgId: extra.org as string, orgRole: null } : null;
+				}
+			: resolve;
+
 	/** Sets `c.var.principal` from the session, then from the extra resolvers. */
-	const attachPrincipal = principalMiddleware<AuthEnv>([
-		(c) => sessionPrincipal(auth as never, c.req.raw.headers),
-		...(extra.resolvers ?? []).map((resolver) => resolver(auth)),
-	]) as unknown as MiddlewareHandler<Env>;
+	const attachPrincipal = principalMiddleware<AuthEnv>(
+		(
+			[
+				(c) => sessionPrincipal(auth as never, c.req.raw.headers),
+				...(extra.resolvers ?? []).map((resolver) => resolver(auth)),
+			] as PrincipalResolver[]
+		).map(inOrg),
+	) as unknown as MiddlewareHandler<Env>;
 
 	/**
 	 * The org the request acts in: the `x-org-id` header, else the session's active org. The

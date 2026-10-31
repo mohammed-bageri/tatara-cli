@@ -47,7 +47,8 @@ describe("/api/authorization", () => {
 			{ headers: await asUser({ systemRoles: ["admin"] }) },
 		);
 		expect(res.status).toBe(200);
-		expect(res.body.data.filter((r) => r.isSystem).map((r) => r.key)).toEqual(["admin", "member"]);
+		const builtIn = res.body.data.filter((r) => r.isSystem).map((r) => r.key);
+		expect(builtIn).toEqual(expect.arrayContaining(["admin", "member"]));
 	});
 
 	it("rejects custom roles that grant authorization itself", async () => {

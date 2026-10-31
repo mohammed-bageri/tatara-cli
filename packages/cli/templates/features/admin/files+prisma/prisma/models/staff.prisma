@@ -1,0 +1,61 @@
+// Internal staff accounts: better-auth's tables under staff_* names, apart from users.
+
+model StaffUser {
+  id            String    @id @db.VarChar(36)
+  name          String    @db.VarChar(255)
+  email         String    @unique @db.VarChar(255)
+  emailVerified Boolean   @default(false) @map("email_verified")
+  image         String?   @db.Text
+  /// staff role, e.g. "staff"; the admin app requires one
+  role          String    @default("staff") @db.VarChar(64)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at")
+  sessions      StaffSession[]
+  accounts      StaffAccount[]
+
+  @@map("staff_users")
+}
+
+model StaffSession {
+  id        String   @id @db.VarChar(36)
+  expiresAt DateTime @map("expires_at")
+  token     String   @unique @db.VarChar(255)
+  ipAddress String?  @map("ip_address") @db.VarChar(64)
+  userAgent String?  @map("user_agent") @db.Text
+  userId    String   @map("user_id") @db.VarChar(36)
+  user      StaffUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("staff_sessions")
+}
+
+model StaffAccount {
+  id                    String    @id @db.VarChar(36)
+  accountId             String    @map("account_id") @db.VarChar(255)
+  providerId            String    @map("provider_id") @db.VarChar(64)
+  userId                String    @map("user_id") @db.VarChar(36)
+  user      StaffUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?   @map("access_token") @db.Text
+  refreshToken          String?   @map("refresh_token") @db.Text
+  idToken               String?   @map("id_token") @db.Text
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at")
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at")
+  scope                 String?   @db.Text
+  password              String?   @db.Text
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  @@map("staff_accounts")
+}
+
+model StaffVerification {
+  id         String   @id @db.VarChar(36)
+  identifier String   @db.VarChar(255)
+  value      String   @db.Text
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("staff_verifications")
+}

@@ -11,8 +11,8 @@ router.openapi(
 		method: "get",
 		path: "/",
 		tags: ["Example"],
-		summary: "Greet the signed-in admin",
-		security: [{ bearerAuth: ["admin"] }],
+		summary: "Greet the signed-in staff member",
+		security: [{ bearerAuth: ["staff"] }],
 		responses: {
 			200: jsonContent(successSchema(greetingSchema), "A greeting"),
 			...errorResponses(401, 403),

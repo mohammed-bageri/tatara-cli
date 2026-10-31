@@ -347,9 +347,36 @@ async function smoke(s: Scenario, dir: string, logDir: string): Promise<string[]
 				(await fetch(`${adminBase}/api/greetings`)).status === 401,
 				"admin without token was not 401",
 			);
-			const adminToken = await tokenFor(s, base, dir, "admin");
-			const res = await fetch(`${adminBase}/api/greetings`, { headers: auth(adminToken) });
-			expect(res.status === 200, `admin with admin token: ${res.status}`);
+			// users' sessions belong to the api app; the admin app knows only staff
+			if (user)
+				expect(
+					[401, 403].includes(
+						(await fetch(`${adminBase}/api/greetings`, { headers: auth(user) })).status,
+					),
+					"a user token worked on the admin app",
+				);
+			let staffToken: string | undefined;
+			if (s.authMethods?.includes("keycloak")) {
+				staffToken = await tokenFor(s, base, dir, "admin"); // alice has the staff realm role
+			} else {
+				const signIn = await fetch(`${adminBase}/api/auth/sign-in/email`, {
+					method: "POST",
+					headers: BROWSER,
+					body: JSON.stringify({
+						email: env.SEED_STAFF_EMAIL ?? "staff@example.com",
+						password: env.SEED_STAFF_PASSWORD,
+					}),
+				});
+				staffToken = signIn.headers.get("set-auth-token") ?? undefined;
+				expect(
+					staffToken,
+					`staff sign-in on the admin app: ${signIn.status} ${await signIn.text()}`,
+				);
+			}
+			const res = await fetch(`${adminBase}/api/greetings`, {
+				headers: { authorization: `Bearer ${staffToken}` },
+			});
+			expect(res.status === 200, `admin with a staff token: ${res.status}`);
 			notes.push("admin");
 		}
 

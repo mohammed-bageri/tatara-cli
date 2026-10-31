@@ -25,6 +25,7 @@ export const auth: Feature = {
 			file: "src/apps/http.ts",
 			slot: "middleware",
 			order: 50,
+			unless: ["admin"],
 			content: "app.use(attachPrincipal);",
 		},
 		{
@@ -108,9 +109,22 @@ export const betterAuth: Feature = {
 		{
 			file: "src/apps/http.ts",
 			slot: "openapi-options",
+			unless: ["admin"],
 			content: [
 				"async extend(document) {",
 				'\tif (name === "api") await mergeAuthOpenApi(document, auth, `${API_PREFIX}/auth`);',
+				"},",
+			].join("\n"),
+		},
+		{
+			// each app documents the better-auth it mounts: users on api, staff on admin
+			file: "src/apps/http.ts",
+			slot: "openapi-options",
+			when: ["admin"],
+			content: [
+				"async extend(document) {",
+				'\tif (name === "api") await mergeAuthOpenApi(document, auth, `${API_PREFIX}/auth`);',
+				'\tif (name === "admin") await mergeAuthOpenApi(document, staffAuth, `${API_PREFIX}/auth`);',
 				"},",
 			].join("\n"),
 		},
