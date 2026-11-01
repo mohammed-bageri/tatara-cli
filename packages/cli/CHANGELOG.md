@@ -1,5 +1,11 @@
 # @tatara/cli
 
+## 0.11.1
+
+### Patch Changes
+
+- 1902880: Apps with the email add-on and no `emails/*.ts` templates typecheck again (`sendTemplate` read an empty list as `never`).
+
 ## 0.11.0
 
 ### Minor Changes
