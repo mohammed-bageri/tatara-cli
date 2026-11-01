@@ -11,7 +11,22 @@ export interface CommandDefinition<S extends z.ZodType = z.ZodType> {
 	description: string;
 	/** flags parsed from `--key value`; use z.coerce for numbers and `flag()` for booleans */
 	args?: S;
+	/**
+	 * When `deploy` runs it: "deploy" on every deploy (it must be idempotent), "once" the first time
+	 * for each database (recorded in the ledger). Without a phase it only runs when asked for.
+	 */
+	phase?: "deploy" | "once";
+	/** deploy order, lowest first (default 100) */
+	order?: number;
 	run(args: z.infer<S>, ctx: CommandContext): Promise<void> | void;
+}
+
+/** Which "once" commands have run; `@tatara/db` has one per database. */
+export interface CommandLedger {
+	completed(): Promise<Set<string>>;
+	record(run: { name: string; phase: "deploy" | "once"; durationMs: number }): Promise<void>;
+	/** holds a database lock for the whole deploy, so two instances deploying at once take turns */
+	exclusive?<T>(fn: () => Promise<T>): Promise<T>;
 }
 
 export const noArgs = z.object({});
@@ -51,16 +66,82 @@ export function parseFlags(argv: string[]): Record<string, string | boolean> {
 	return flags;
 }
 
-/** Runs the command named by argv[0]; returns the process exit code. */
+/**
+ * The `deploy` command: every "deploy" command, then each "once" command the ledger hasn't seen, in
+ * `order`. Stops at the first failure, so a deploy never half-applies silently.
+ */
+export async function runDeploy(
+	commands: readonly CommandDefinition[],
+	logger: CoreLogger,
+	ledger?: CommandLedger,
+): Promise<number> {
+	const due = commands
+		.filter((c) => c.phase)
+		.sort((a, b) => (a.order ?? 100) - (b.order ?? 100) || a.name.localeCompare(b.name));
+	// all of them, before any runs: finding out halfway would leave a deploy half-applied
+	for (const command of due) {
+		const parsed = command.args?.safeParse({});
+		if (parsed && !parsed.success) {
+			logger.error(
+				{ command: command.name, issues: parsed.error.issues },
+				"a deploy command can't need arguments",
+			);
+			return 1;
+		}
+	}
+	const run = async (): Promise<number> => {
+		// read when the first "once" command comes up: by then migrations (order 0) made the ledger
+		let done: Set<string> | undefined;
+		for (const command of due) {
+			const log = logger.child({ command: command.name, phase: command.phase });
+			const once = command.phase === "once";
+			try {
+				if (once) {
+					if (!ledger) {
+						log.warn("skipped: running a command once needs a ledger");
+						continue;
+					}
+					done ??= await ledger.completed();
+					if (done.has(command.name)) continue;
+				}
+				const started = performance.now();
+				await command.run(command.args ? command.args.parse({}) : {}, { logger: log });
+				const durationMs = Math.round(performance.now() - started);
+				// unrecorded, a once command runs again next deploy: so it fails this one, loudly
+				if (once) await ledger?.record({ name: command.name, phase: "once", durationMs });
+				log.info({ durationMs }, "ran");
+			} catch (error) {
+				log.error({ err: error }, "deploy failed");
+				return 1;
+			}
+		}
+		return 0;
+	};
+	if (!ledger?.exclusive) return run();
+	try {
+		return await ledger.exclusive(run);
+	} catch (error) {
+		logger.error({ err: error }, "deploy could not take the deploy lock");
+		return 1;
+	}
+}
+
+/** Runs the command named by argv[0] (or `deploy`); returns the process exit code. */
 export async function runCommand(
 	commands: readonly CommandDefinition[],
 	argv: string[],
 	logger: CoreLogger,
+	options: { ledger?: CommandLedger } = {},
 ): Promise<number> {
 	const [name, ...rest] = argv;
+	if (name === "deploy" && !commands.some((c) => c.name === "deploy"))
+		return runDeploy(commands, logger, options.ledger);
 	if (!name || name === "--list" || name === "list" || name === "help") {
 		const width = Math.max(0, ...commands.map((c) => c.name.length));
 		console.log("Commands:");
+		console.log(
+			`  ${"deploy".padEnd(width)}  Run the deploy and once commands (on every deploy, after migrations)`,
+		);
 		for (const c of [...commands].sort((a, b) => a.name.localeCompare(b.name))) {
 			console.log(`  ${c.name.padEnd(width)}  ${c.description}`);
 		}

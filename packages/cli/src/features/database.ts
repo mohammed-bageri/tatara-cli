@@ -48,6 +48,18 @@ export const db: Feature = {
 				'process.env.DATABASE_URL = workerDatabaseUrl(process.env.DATABASE_URL ?? "", process.env.VITEST_POOL_ID ?? "1");',
 			].join("\n"),
 		},
+		{
+			file: "src/apps/cli/index.ts",
+			slot: "imports",
+			content:
+				'import { env } from "#core/config/env";\nimport { commandLedger } from "#core/db/admin";',
+		},
+		{
+			// `deploy` remembers the "once" commands it ran, per database
+			file: "src/apps/cli/index.ts",
+			slot: "options",
+			content: "ledger: commandLedger(env.DATABASE_URL),",
+		},
 		{ file: "AGENTS.md", slot: "sections", content: AGENTS_DB },
 	],
 };

@@ -12,8 +12,8 @@ const AUTHZ_AGENTS = `## Permissions (authz)
 - Effective permissions = role grants (assigned roles + built-in roles whose key matches an
   identity-provider role) + grant overlays − deny overlays. Deny always wins.
 - Custom roles and grant overlays can never grant \`role\`, \`member\` or \`audit_log\`.
-- Built-in roles live in \`src/core/authz/system-roles.ts\`. Run \`__PM_EXEC__ tatara run authz:sync-permissions\`
-  on every deploy (it is idempotent); \`db:seed\` runs it locally.
+- Built-in roles live in \`src/core/authz/system-roles.ts\`. \`authz:sync-permissions\` brings the database
+  in line with them; \`deploy\` runs it every deploy, \`db:seed\` locally.
 - In tests: \`asUser({ permissions: ["project:read"] })\` or \`asUser({ systemRoles: ["admin"] })\`.
 `;
 
@@ -686,6 +686,110 @@ export const realtime: Feature = {
   events: { "answer.created": schema }, authorize(who, params) })\`. Clients \`emit("subscribe", name)\`;
   publish with \`publishTo(channel, { orgId, params, event, payload })\` (the payload is checked).
 - With notifications, every inbox entry is also pushed as \`notification.created\`.
+`,
+		},
+	],
+};
+
+export const observability: Feature = {
+	id: "observability",
+	kind: "addon",
+	label: "Observability (OpenTelemetry)",
+	dependencies: [
+		"@tatara/observability",
+		"@opentelemetry/api",
+		"@opentelemetry/sdk-node",
+		"@opentelemetry/sdk-trace",
+		"@opentelemetry/sdk-metrics",
+		"@opentelemetry/resources",
+		"@opentelemetry/exporter-trace-otlp-http",
+		"@opentelemetry/exporter-metrics-otlp-http",
+		"@opentelemetry/auto-instrumentations-node",
+		"@opentelemetry/instrumentation",
+		"@hono/otel",
+	],
+	allowBuilds: ["protobufjs"],
+	scripts: { start: "node --import ./dist/apps/instrument.mjs dist/apps/api/server.mjs" },
+	variants: [
+		{
+			when: ["jobs"],
+			scripts: {
+				"start:worker": "node --import ./dist/apps/instrument.mjs dist/apps/worker/index.mjs",
+				"start:cron": "node --import ./dist/apps/instrument.mjs dist/apps/cron/index.mjs",
+			},
+		},
+		{
+			when: ["admin"],
+			scripts: {
+				"start:admin": "node --import ./dist/apps/instrument.mjs dist/apps/admin/server.mjs",
+			},
+		},
+	],
+	env: [
+		{
+			key: "OTEL_EXPORTER_OTLP_ENDPOINT",
+			schema: "z.url().optional()",
+			example: "",
+			comment: "OTLP/HTTP collector, e.g. http://localhost:4318; empty sends nothing",
+		},
+		{
+			key: "OTEL_SERVICE_NAME",
+			schema: 'z.string().default("__APP_NAME__")',
+			example: "__APP_NAME__",
+		},
+		{
+			key: "OTEL_TRACES_SAMPLE_RATIO",
+			schema: "z.coerce.number().min(0).max(1).default(1)",
+			example: "1",
+			comment: "Share of new traces kept (0–1)",
+		},
+	],
+	slots: [
+		{
+			file: "tsdown.config.ts",
+			slot: "entries",
+			content: '"apps/instrument": "src/apps/instrument.ts",',
+		},
+		{
+			// every process the image runs (api, worker, cron, the CLI) starts instrumented
+			file: "Dockerfile",
+			slot: "docker-runtime",
+			order: 60,
+			content: 'ENV NODE_OPTIONS="--import /app/dist/apps/instrument.mjs"',
+		},
+		{
+			file: "src/apps/http.ts",
+			slot: "imports",
+			content: 'import { httpTracing } from "@tatara/observability";',
+		},
+		{
+			file: "src/apps/http.ts",
+			slot: "middleware",
+			order: 5,
+			content: "app.use(httpTracing(env.OTEL_SERVICE_NAME));",
+		},
+		{
+			file: "src/core/logging/logger.ts",
+			slot: "imports",
+			content: 'import { traceIds } from "@tatara/observability";',
+		},
+		{
+			// log lines carry trace_id and span_id, so a log search lands on its trace
+			file: "src/core/logging/logger.ts",
+			slot: "logger-options",
+			content: "mixin: traceIds,",
+		},
+		{
+			file: "AGENTS.md",
+			slot: "sections",
+			content: `## Observability
+
+- Set \`OTEL_EXPORTER_OTLP_ENDPOINT\` (any OTLP/HTTP collector: Grafana, Honeycomb, Datadog, Jaeger…)
+  and every process sends traces and metrics. Requests, database, Redis and HTTP calls are traced
+  for you; log lines carry \`trace_id\` and \`span_id\`.
+- Processes start with \`node --import ./dist/apps/instrument.mjs\` (the Dockerfile sets it in
+  \`NODE_OPTIONS\`); without it nothing is instrumented.
+- Your own spans: \`trace.getTracer("billing").startActiveSpan(...)\` from \`@opentelemetry/api\`.
 `,
 		},
 	],

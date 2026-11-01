@@ -52,3 +52,44 @@ export async function truncateAllTables(url: string): Promise<void> {
 		);
 	});
 }
+
+/**
+ * The command ledger in `tatara_command_runs`: which "once" commands this database has run. The
+ * table is the app's own (its ORM schema and migrations), so migration tools see no drift.
+ */
+export function commandLedger(url: string): {
+	completed(): Promise<Set<string>>;
+	record(run: { name: string; phase: "deploy" | "once"; durationMs: number }): Promise<void>;
+	exclusive<T>(fn: () => Promise<T>): Promise<T>;
+} {
+	return {
+		// a named lock on its own connection, held while the deploy runs (waits up to 10 min)
+		exclusive: (fn) =>
+			withConnection(url, async (c) => {
+				const [rows] = await c.query<mysql.RowDataPacket[]>(
+					"select get_lock('tatara:deploy', 600) as got",
+				);
+				const got = (rows as { got: number }[])[0]?.got;
+				if (Number(got) !== 1) throw new Error("another deploy is still running");
+				try {
+					return await fn();
+				} finally {
+					await c.query("select release_lock('tatara:deploy')");
+				}
+			}),
+		completed: () =>
+			withConnection(url, async (c) => {
+				const [rows] = await c.query<mysql.RowDataPacket[]>(
+					"select name from tatara_command_runs where phase = 'once'",
+				);
+				return new Set((rows as { name: string }[]).map((r) => String(r.name)));
+			}),
+		record: ({ name, phase, durationMs }) =>
+			withConnection(url, async (c) => {
+				await c.query(
+					"insert into tatara_command_runs (name, phase, duration_ms) values (?, ?, ?) on duplicate key update phase = values(phase), ran_at = current_timestamp(3), duration_ms = values(duration_ms)",
+					[name, phase, durationMs],
+				);
+			}),
+	};
+}

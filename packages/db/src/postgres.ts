@@ -30,6 +30,8 @@ export async function ensureDatabase(url: string): Promise<void> {
 export async function dropAllTables(url: string): Promise<void> {
 	await withClient(url, async (client) => {
 		await client.query("drop schema if exists drizzle cascade");
+		// the cache, jobs and command ledger live here: a reset starts them over too
+		await client.query("drop schema if exists tatara cascade");
 		await client.query("drop schema public cascade");
 		await client.query("create schema public");
 	});
@@ -47,4 +49,48 @@ export async function truncateAllTables(url: string): Promise<void> {
 			);
 		}
 	});
+}
+
+/** The command ledger in `tatara.command_runs`: which "once" commands this database has run. */
+export function commandLedger(url: string): {
+	completed(): Promise<Set<string>>;
+	record(run: { name: string; phase: "deploy" | "once"; durationMs: number }): Promise<void>;
+	exclusive<T>(fn: () => Promise<T>): Promise<T>;
+} {
+	const ensure = (client: pg.Client) =>
+		client
+			.query("create schema if not exists tatara")
+			.then(() =>
+				client.query(
+					"create table if not exists tatara.command_runs (name text primary key, phase text not null, ran_at timestamptz not null default now(), duration_ms integer not null)",
+				),
+			);
+	return {
+		// a session advisory lock on its own connection, held while the deploy runs
+		exclusive: (fn) =>
+			withClient(url, async (client) => {
+				await client.query("select pg_advisory_lock(hashtext('tatara:deploy'))");
+				try {
+					return await fn();
+				} finally {
+					await client.query("select pg_advisory_unlock(hashtext('tatara:deploy'))");
+				}
+			}),
+		completed: () =>
+			withClient(url, async (client) => {
+				await ensure(client);
+				const { rows } = await client.query<{ name: string }>(
+					"select name from tatara.command_runs where phase = 'once'",
+				);
+				return new Set(rows.map((r) => r.name));
+			}),
+		record: ({ name, phase, durationMs }) =>
+			withClient(url, async (client) => {
+				await ensure(client);
+				await client.query(
+					"insert into tatara.command_runs (name, phase, duration_ms) values ($1, $2, $3) on conflict (name) do update set phase = excluded.phase, ran_at = now(), duration_ms = excluded.duration_ms",
+					[name, phase, durationMs],
+				);
+			}),
+	};
 }

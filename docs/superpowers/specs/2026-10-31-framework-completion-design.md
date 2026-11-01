@@ -75,3 +75,16 @@ Decided after:
 - contracts generated from OpenAPI;
 - Redis-first default drivers;
 - a Kafka driver in step 4.
+
+## Status (2026-11-01)
+
+Step 1 released as 0.10.0. Steps 2–7 are built and release together as 0.11.0 (PRs #14–#19), once the new packages (`cache`, `notifications`, `realtime`, `observability`) have their first publish.
+
+Calls made while building, beyond the table above:
+- Kafka through kafkajs (what Sana runs); delayed jobs wait in their own consumer group.
+- Schedules claim a tick (`add` with a TTL) rather than lock it for the run, so a late process or a retried trigger can't run it twice.
+- The Postgres drivers (cache, jobs, ledger) keep their tables in a `tatara` schema, outside ORM migrations; on MySQL the ledger is an app-owned table.
+- Notifications claim each channel with a conditional update before sending: at most once per recipient, never twice.
+- `enqueue` and `sendTemplate` are typed from the generated lists, imported as types only, so core never loads module code.
+- Library changes peered by other packages (core, http, db, authz) ship as patches, so changesets doesn't force majors on their dependents.
+- Not built: per-user notification preferences, an HTML sanitizer, and `owner` → `admin` role mapping (needs a decision).

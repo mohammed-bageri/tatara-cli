@@ -1,0 +1,9 @@
+// Which "once" commands this database has run (written by `deploy`).
+model TataraCommandRun {
+  name       String   @id @db.VarChar(255)
+  phase      String   @db.VarChar(16)
+  ranAt      DateTime @default(now()) @map("ran_at") @db.DateTime(3)
+  durationMs Int      @map("duration_ms")
+
+  @@map("tatara_command_runs")
+}
