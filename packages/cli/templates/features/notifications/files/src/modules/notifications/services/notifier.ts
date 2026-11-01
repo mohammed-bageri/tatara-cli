@@ -52,6 +52,9 @@ export const { notify, consumers } = createNotifier<NotificationsOf<typeof notif
 			? { email: user.email ?? null, phone: user.phoneNumber ?? null, language: user.language ?? null }
 			: null;
 	},
+	// who gets what is yours to decide: preferences, quiet hours… ({ userId, notification, channel,
+	// data }); false skips that channel for that user
+	allow: () => true,
 	sms: sms(),
 	push: push(),
 	// tatara:slot senders

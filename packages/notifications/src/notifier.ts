@@ -57,6 +57,17 @@ export interface NotifierOptions {
 	onInApp?(
 		row: { id: string; orgId: string; userId: string; name: string } & InAppContent,
 	): Promise<void>;
+	/**
+	 * The app's say over delivery: return false and this user doesn't get this channel (their
+	 * preferences, quiet hours, an unverified address…). Asked once per user and channel.
+	 */
+	allow?(input: {
+		orgId: string;
+		userId: string;
+		notification: string;
+		channel: Channel;
+		data: unknown;
+	}): boolean | Promise<boolean>;
 	defaultLanguage?: string;
 	logger: CoreLogger;
 }
@@ -179,7 +190,21 @@ export function createNotifier<Names extends object = Record<string, unknown>>(
 		async handle(job, ctx) {
 			const def = definition(job.notification);
 			const data = def.schema.parse(job.data);
-			const channels = job.channels ?? [...def.channels];
+			const wanted = job.channels ?? [...def.channels];
+			const channels: Channel[] = [];
+			for (const channel of wanted)
+				if (
+					!options.allow ||
+					(await options.allow({
+						orgId: job.orgId,
+						userId: job.userId,
+						notification: def.name,
+						channel,
+						data,
+					}))
+				)
+					channels.push(channel);
+			if (channels.length === 0) return;
 			const contact = (await options.contact(job.userId)) ?? {};
 			const language = contact.language ?? options.defaultLanguage ?? "en";
 			const inApp = channels.includes("in-app")

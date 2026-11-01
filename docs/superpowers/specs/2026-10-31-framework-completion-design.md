@@ -87,4 +87,5 @@ Calls made while building, beyond the table above:
 - Notifications claim each channel with a conditional update before sending: at most once per recipient, never twice.
 - `enqueue` and `sendTemplate` are typed from the generated lists, imported as types only, so core never loads module code.
 - Library changes peered by other packages (core, http, db, authz) ship as patches, so changesets doesn't force majors on their dependents.
-- Not built: per-user notification preferences, an HTML sanitizer, and `owner` → `admin` role mapping (needs a decision).
+- Built after 0.11 (0.12): `authz.grantSystemRole` with the org creator made `admin` in the app's own `auth.ts` (Sana grants `admin` to owners the same way); the notifier's `allow` hook, so delivery rules (preferences, quiet hours) are the app's; `sanitizeHtml` in `@tatara/core/html`; `tatara add <add-on>`; in-thread ESM hooks for observability on Node 26.
+- The framework gives helpers, structure and configuration; business rules stay in app code, generated where the app can read and change it.

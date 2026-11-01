@@ -24,14 +24,14 @@ export interface UpgradeOptions {
 	formatFile?: (file: string, project: Project) => Promise<void>;
 }
 
-async function pmInstall(project: Project): Promise<void> {
+export async function pmInstall(project: Project): Promise<void> {
 	const [cmd = "pnpm", ...args] = pmCommands(project.config.packageManager).install;
 	const res = await x(cmd, args, {
 		throwOnError: false,
 		nodeOptions: { cwd: project.root, stdio: "inherit" },
 	});
 	if (res.exitCode !== 0)
-		throw new Error(`${cmd} ${args.join(" ")} failed; fix it, then run tatara upgrade again`);
+		throw new Error(`${cmd} ${args.join(" ")} failed; fix it, then run the command again`);
 }
 
 /** Sets every @tatara/* library the app depends on to the range this CLI ships with. */

@@ -567,6 +567,9 @@ export const notifications: Feature = {
 - Delivery runs through jobs (\`notifications.fanout\`, then one \`notifications.deliver\` per user); each
   channel goes out once per recipient, and the same \`idempotencyKey\` never notifies anyone twice.
   Pass \`executor\` (with the Postgres jobs driver) to send only if your transaction commits.
+- The rules are the app's: \`allow({ userId, notification, channel, data })\` in the notifier decides
+  who gets which channel (store preferences in your own table); the inbox routes and tables are
+  yours to change too.
 - The inbox: \`GET /api/notifications\` (cursor), \`/unread-count\`, \`POST /read\`, and
   \`POST|DELETE /push-tokens\` for devices. \`SMS_DRIVER=twilio\` and \`PUSH_DRIVER=fcm\` send for real.
 - In tests, jobs run inline: \`await (jobs.driver as InlineDriver).drain()\` after \`notify\`.
@@ -706,6 +709,7 @@ export const observability: Feature = {
 		"@opentelemetry/exporter-metrics-otlp-http",
 		"@opentelemetry/auto-instrumentations-node",
 		"@opentelemetry/instrumentation",
+		"import-in-the-middle",
 		"@hono/otel",
 	],
 	allowBuilds: ["protobufjs"],

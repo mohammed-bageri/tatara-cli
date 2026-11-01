@@ -428,9 +428,12 @@ async function smoke(s: Scenario, dir: string, logDir: string): Promise<string[]
 		if (s.addons.includes("observability")) {
 			// the production start: instrumented, sending to a collector (here, a stand-in)
 			const paths: string[] = [];
+			let traces = "";
 			const collector = createServer((req, res) => {
 				paths.push(req.url ?? "");
-				req.resume();
+				req.on("data", (chunk: Buffer) => {
+					if (req.url === "/v1/traces") traces += chunk.toString();
+				});
 				req.on("end", () => res.writeHead(200, { "content-type": "application/json" }).end("{}"));
 			});
 			await new Promise<void>((r) => collector.listen(0, r));
@@ -453,6 +456,8 @@ async function smoke(s: Scenario, dir: string, logDir: string): Promise<string[]
 					(await fetch(`http://localhost:${port}/api/greetings?name=OTel`)).ok,
 					"greetings failed",
 				);
+				// /ready queries the database: its span proves the libraries themselves were patched
+				await fetch(`http://localhost:${port}/ready`);
 			} finally {
 				// a graceful stop flushes the spans
 				traced.kill("SIGTERM");
@@ -463,6 +468,11 @@ async function smoke(s: Scenario, dir: string, logDir: string): Promise<string[]
 				paths.includes("/v1/traces"),
 				`no traces reached the collector (got ${paths.join(", ")})`,
 			);
+			if (s.database === "postgres")
+				expect(
+					traces.includes("instrumentation-pg"),
+					"no Postgres spans: the ESM hooks didn't patch pg",
+				);
 			notes.push("telemetry");
 		}
 
@@ -708,6 +718,16 @@ async function runScenario(
 			if (!s.addons.includes("email")) return "skipped";
 			rmSync(join(dir, "src/modules/example/emails"), { recursive: true, force: true });
 			await sh(pmRun[0] ?? "pnpm", [...pmRun.slice(1), "typecheck"], "typecheck-no-emails");
+		})) &&
+		(await step("tatara add", async () => {
+			// growing an app later: jobs (and the cache it brings) onto one made without them
+			if (s.addons.includes("jobs") || s.database === "none") return "skipped";
+			await sh(tatara, ["add", "jobs"], "add-jobs");
+			const added = JSON.parse(readFileSync(join(dir, "tatara.json"), "utf8")) as {
+				addons: string[];
+			};
+			if (!added.addons.includes("cache"))
+				throw new Error("tatara add jobs didn't bring the cache");
 		})) &&
 		(await step("generators", async () => {
 			const made: string[] = [];
