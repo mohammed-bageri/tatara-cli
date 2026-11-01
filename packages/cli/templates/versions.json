@@ -35,7 +35,7 @@
   "@tatara/http": "0.1.2",
   "@tatara/db": "0.2.2",
   "@tatara/testing": "0.1.1",
-  "@tatara/auth": "0.2.0",
+  "@tatara/auth": "0.2.1",
   "@tatara/keycloak": "0.1.2",
   "@tatara/authz": "0.4.0",
   "@tatara/storage": "0.2.0",
