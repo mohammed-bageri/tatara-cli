@@ -41,6 +41,7 @@ __PM_EXEC__ tatara make route|service|command <name> --module <module>
 __PM_EXEC__ tatara run --list            # app commands
 __PM_EXEC__ tatara routes                # every route and what protects it
 __PM_EXEC__ tatara upgrade               # after bumping @tatara/cli: run its codemods, sync, verify
+__PM_EXEC__ tatara add <add-on…>         # add jobs, cache, realtime… to this app later
 ```
 
 ## HTTP
