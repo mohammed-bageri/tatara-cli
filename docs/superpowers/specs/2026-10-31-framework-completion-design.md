@@ -89,3 +89,7 @@ Calls made while building, beyond the table above:
 - Library changes peered by other packages (core, http, db, authz) ship as patches, so changesets doesn't force majors on their dependents.
 - Built after 0.11 (0.12): `authz.grantSystemRole` with the org creator made `admin` in the app's own `auth.ts` (Sana grants `admin` to owners the same way); the notifier's `allow` hook, so delivery rules (preferences, quiet hours) are the app's; `sanitizeHtml` in `@tatara/core/html`; `tatara add <add-on>`; in-thread ESM hooks for observability on Node 26.
 - The framework gives helpers, structure and configuration; business rules stay in app code, generated where the app can read and change it.
+
+## Planned (found in apps)
+
+- **Org roles in one place.** An app with its own org roles (MeemAin: manager, teacher, player) declares them twice: as authz built-in roles, and in better-auth's `organization({ roles })` access control, which rejects roles it doesn't know. tatara could build better-auth's roles from `system-roles.ts`.
