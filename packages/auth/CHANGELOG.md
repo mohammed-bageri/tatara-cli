@@ -1,5 +1,11 @@
 # @tatara/auth
 
+## 0.2.1
+
+### Patch Changes
+
+- 68e4f61: `requireOrg({ param: "orgId" })` takes the org from the path (`/orgs/:orgId/...`); a header can't override it.
+
 ## 0.2.0
 
 ### Minor Changes
