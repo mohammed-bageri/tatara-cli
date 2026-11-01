@@ -29,6 +29,7 @@ function identifier(path: string, prefix: string): string {
 					"db",
 					"emails",
 					"notifications",
+					"channels",
 				].includes(p),
 		);
 	const raw = `${prefix}_${parts.join("_")}`.replace(/[^A-Za-z0-9_]/g, "_");
@@ -257,6 +258,15 @@ export async function sync(project: Project = loadProject()): Promise<SyncResult
 				"NotificationDefinition",
 				"notifications",
 			),
+			written,
+		);
+	}
+
+	if (project.has("realtime")) {
+		const channels = await find(root, ["src/modules/*/channels/*.ts"]);
+		await write(
+			join(out, "channels.ts"),
+			definitionList(channels, "channel", "@tatara/realtime", "ChannelDefinition", "channels"),
 			written,
 		);
 	}

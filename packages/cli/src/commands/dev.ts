@@ -55,7 +55,7 @@ function prefixed(child: ChildProcess, label: string) {
 }
 
 const CONVENTION =
-	/\/(routes|commands|consumers|schedules|permissions|db|emails|notifications)\/[^/]+\.ts$/;
+	/\/(routes|commands|consumers|schedules|permissions|db|emails|notifications|channels)\/[^/]+\.ts$/;
 
 /** Re-runs `tatara sync` when convention files appear or disappear, so --watch picks them up. */
 function watchConventions(project: Project): FSWatcher[] {

@@ -3,11 +3,11 @@ import type { AppOptions, Feature } from "../features/types.ts";
 
 export class OptionsError extends Error {}
 
-/** Add-ons others need: notifications deliver through jobs, and schedules lock with the cache. */
+/** Add-ons others need: notifications deliver through jobs; schedules and realtime tickets use the cache. */
 function impliedAddons(addons: AppOptions["addons"]): AppOptions["addons"] {
 	const out = new Set(addons);
 	if (out.has("notifications")) out.add("jobs");
-	if (out.has("jobs")) out.add("cache");
+	if (out.has("jobs") || out.has("realtime")) out.add("cache");
 	return [...out];
 }
 
@@ -42,7 +42,10 @@ export function validateOptions(input: AppOptions): AppOptions {
 	}
 	for (const addon of options.addons) {
 		if (
-			(addon === "authz" || addon === "admin" || addon === "notifications") &&
+			(addon === "authz" ||
+				addon === "admin" ||
+				addon === "notifications" ||
+				addon === "realtime") &&
 			options.auth === "none"
 		) {
 			throw new OptionsError(`The ${addon} add-on needs an auth provider.`);

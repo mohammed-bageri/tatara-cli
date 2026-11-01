@@ -99,7 +99,9 @@ describe("0.3.0 http-package codemod", () => {
 		expect(appTs).toContain("createApp<AppEnv>");
 		expect(read(project, "src/core/http/routes.ts")).toContain("createTataraRouter<AppEnv>()");
 		const server = read(project, "src/apps/api/server.ts");
-		expect(server).toContain('startServer(app, { port: env.PORT, name: "api", logger })');
+		expect(server).toContain("startServer(app, {");
+		expect(server).toContain('name: "api"');
+		expect(server).toContain('from "@tatara/http"');
 	});
 
 	it("changes nothing in the group when app.ts is customised, and says why", async () => {

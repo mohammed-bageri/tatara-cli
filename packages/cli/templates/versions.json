@@ -45,5 +45,10 @@
   "@tatara/cache": "0.0.0",
   "openapi-typescript": "7.13.0",
   "kafkajs": "2.2.4",
-  "@tatara/notifications": "0.0.0"
+  "@tatara/notifications": "0.0.0",
+  "@tatara/realtime": "0.0.0",
+  "socket.io": "4.8.4",
+  "socket.io-client": "4.8.4",
+  "@socket.io/redis-adapter": "8.3.0",
+  "@socket.io/redis-emitter": "5.1.0"
 }

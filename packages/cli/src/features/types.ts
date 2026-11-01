@@ -7,6 +7,7 @@ export type Addon =
 	| "jobs"
 	| "cache"
 	| "notifications"
+	| "realtime"
 	| "admin"
 	| "storage"
 	| "email"
