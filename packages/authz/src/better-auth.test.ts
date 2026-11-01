@@ -158,7 +158,8 @@ describe("authzPlugin", () => {
 	it("gives someone invited as owner the creator's role when they accept", async () => {
 		const { orgId, owner } = await orgWithMember();
 		const invitee = await t.user();
-		const email = (t.db.user?.find((u) => u.id === invitee.id) as { email: string }).email;
+		const row = (t.db.user ?? []).find((u) => u.id === invitee.id) as { email: string };
+		const email = row.email;
 		const invited = await t.call("invite-member", owner.headers, {
 			organizationId: orgId,
 			email,
