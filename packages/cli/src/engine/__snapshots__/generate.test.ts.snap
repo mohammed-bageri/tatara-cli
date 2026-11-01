@@ -45,6 +45,7 @@ exports[`renderApp > produces the expected file set for a full better-auth app 1
   "src/locales/ar.json",
   "src/locales/en.json",
   "src/modules/example/consumers/send-welcome.ts",
+  "src/modules/example/emails/welcome.ts",
   "src/modules/example/routes/admin-greeting.routes.ts",
   "src/modules/example/routes/greeting.routes.ts",
   "src/modules/example/schedules/heartbeat.ts",

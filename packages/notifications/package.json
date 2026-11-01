@@ -1,0 +1,65 @@
+{
+	"name": "@tatara/notifications",
+	"version": "0.0.0",
+	"description": "tatara notifications: one notify for in-app, email, SMS and push, delivered through jobs",
+	"type": "module",
+	"license": "MIT",
+	"sideEffects": false,
+	"exports": {
+		".": {
+			"types": "./dist/index.d.mts",
+			"import": "./dist/index.mjs"
+		},
+		"./drizzle": {
+			"types": "./dist/drizzle.d.mts",
+			"import": "./dist/drizzle.mjs"
+		},
+		"./prisma": {
+			"types": "./dist/prisma.d.mts",
+			"import": "./dist/prisma.mjs"
+		}
+	},
+	"files": [
+		"dist",
+		"src",
+		"!src/**/*.test.ts"
+	],
+	"engines": {
+		"node": ">=24"
+	},
+	"scripts": {
+		"build": "tsdown",
+		"typecheck": "tsc --noEmit"
+	},
+	"peerDependencies": {
+		"@tatara/core": "^0.1.1",
+		"zod": "^4.6.7",
+		"drizzle-orm": "^0.45.4"
+	},
+	"peerDependenciesMeta": {
+		"drizzle-orm": {
+			"optional": true
+		}
+	},
+	"devDependencies": {
+		"@tatara/core": "workspace:^",
+		"@tatara/jobs": "workspace:^",
+		"zod": "^4.6.7",
+		"pino": "^10.4.0",
+		"drizzle-orm": "^0.45.4",
+		"pg": "^8.23.1",
+		"@types/pg": "8.23.1"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/mohammed-bageri/tatara-cli.git",
+		"directory": "packages/notifications"
+	},
+	"homepage": "https://github.com/mohammed-bageri/tatara-cli#readme",
+	"bugs": {
+		"url": "https://github.com/mohammed-bageri/tatara-cli/issues"
+	}
+}

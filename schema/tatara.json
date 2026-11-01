@@ -28,7 +28,9 @@
 		},
 		"addons": {
 			"type": "array",
-			"items": { "enum": ["authz", "jobs", "cache", "admin", "storage", "email", "i18n"] },
+			"items": {
+				"enum": ["authz", "jobs", "cache", "notifications", "admin", "storage", "email", "i18n"]
+			},
 			"uniqueItems": true
 		},
 		"packageManager": { "enum": ["pnpm", "npm", "bun"] },

@@ -409,6 +409,172 @@ export const admin: Feature = {
 	],
 };
 
+const MEMBERS = `/** The org's members, a page at a time. */
+async function* members(orgId: string) {
+	const { adapter } = await auth.$context;
+	for (let offset = 0; ; offset += 100) {
+		const page = await adapter.findMany<{ userId: string; role: string }>({
+			model: "member",
+			where: [{ field: "organizationId", value: orgId }],
+			limit: 100,
+			offset,
+			sortBy: { field: "id", direction: "asc" },
+		});
+		yield* page;
+		if (page.length < 100) return;
+	}
+}`;
+
+const hasRole = 'm.role.split(",").map((r) => r.trim()).includes(role)';
+
+export const notifications: Feature = {
+	id: "notifications",
+	kind: "addon",
+	label: "Notifications (in-app, email, SMS, push)",
+	dependencies: ["@tatara/notifications"],
+	env: [
+		{
+			key: "SMS_DRIVER",
+			schema: 'z.enum(["console", "twilio"]).default("console")',
+			example: "console",
+			test: "console",
+			comment: "How notifications send SMS; console logs them",
+		},
+		{ key: "TWILIO_ACCOUNT_SID", schema: "z.string().optional()", example: "" },
+		{ key: "TWILIO_AUTH_TOKEN", schema: "z.string().optional()", example: "" },
+		{
+			key: "TWILIO_FROM",
+			schema: "z.string().optional()",
+			example: "",
+			comment: "A Twilio number, or a messaging service sid (MG…)",
+		},
+		{
+			key: "PUSH_DRIVER",
+			schema: 'z.enum(["console", "fcm"]).default("console")',
+			example: "console",
+			test: "console",
+			comment: "How notifications push to devices; console logs them",
+		},
+		{ key: "FCM_PROJECT_ID", schema: "z.string().optional()", example: "" },
+		{ key: "FCM_CLIENT_EMAIL", schema: "z.string().optional()", example: "" },
+		{
+			key: "FCM_PRIVATE_KEY",
+			schema: "z.string().optional()",
+			example: "",
+			comment: "The Firebase service account's private key (\\n escapes are fine)",
+		},
+	],
+	slots: [
+		{
+			file: "src/modules/notifications/services/notifier.ts",
+			slot: "recipients",
+			unless: ["auth-orgs"],
+			content: [
+				"// without organizations there is no org to look people up in: notify users by id",
+				"recipients: {",
+				"\trole() {",
+				'\t\tthrow new Error("Notifying by role needs organizations (the orgs auth method)");',
+				"\t},",
+				"\tpermission() {",
+				'\t\tthrow new Error("Notifying by permission needs organizations and the authz add-on");',
+				"\t},",
+				"},",
+			].join("\n"),
+		},
+		{
+			file: "src/modules/notifications/services/notifier.ts",
+			slot: "helpers",
+			when: ["auth-orgs"],
+			content: MEMBERS,
+		},
+		{
+			file: "src/modules/notifications/services/notifier.ts",
+			slot: "recipients",
+			when: ["auth-orgs"],
+			unless: ["authz"],
+			content: [
+				"recipients: {",
+				"\tasync *role(orgId, role) {",
+				`\t\tfor await (const m of members(orgId)) if (${hasRole}) yield m.userId;`,
+				"\t},",
+				"\tpermission() {",
+				'\t\tthrow new Error("Notifying by permission needs the authz add-on");',
+				"\t},",
+				"},",
+			].join("\n"),
+		},
+		{
+			file: "src/modules/notifications/services/notifier.ts",
+			slot: "recipients",
+			when: ["auth-orgs", "authz"],
+			content: [
+				"recipients: {",
+				"\tasync *role(orgId, role) {",
+				`\t\tfor await (const m of members(orgId)) if (${hasRole}) yield m.userId;`,
+				"\t},",
+				"\t// the same check a request makes: built-in roles, assigned roles and overlays",
+				"\tasync *permission(orgId, permission) {",
+				"\t\tfor await (const m of members(orgId)) {",
+				'\t\t\tconst who = { userId: m.userId, orgId, orgRole: m.role, roles: [], kind: "user" as const, claims: {} };',
+				"\t\t\tif (await checkPermission(who, permission as PermissionKey)) yield m.userId;",
+				"\t\t}",
+				"\t},",
+				"},",
+			].join("\n"),
+		},
+		{
+			file: "src/modules/notifications/services/notifier.ts",
+			slot: "imports",
+			when: ["auth-orgs", "authz"],
+			content:
+				'import { checkPermission } from "#core/authz/index";\nimport type { PermissionKey } from "#generated/permissions";',
+		},
+		{
+			file: "src/modules/notifications/services/notifier.ts",
+			slot: "senders",
+			when: ["email"],
+			content: "email: { send: (message) => sendEmail(message) },",
+		},
+		{
+			file: "src/modules/notifications/services/notifier.ts",
+			slot: "imports",
+			when: ["email"],
+			content: 'import { sendEmail } from "#core/email/send";',
+		},
+		{
+			// an inbox belongs to the org the request acts in
+			file: "src/modules/notifications/routes/notifications.routes.ts",
+			slot: "guard",
+			when: ["auth-orgs"],
+			content: "requireOrg(),",
+		},
+		{
+			file: "src/modules/notifications/routes/notifications.routes.ts",
+			slot: "imports",
+			when: ["auth-orgs"],
+			content: 'import { requireOrg } from "#modules/users/services/auth";',
+		},
+		{
+			file: "AGENTS.md",
+			slot: "sections",
+			content: `## Notifications
+
+- \`notify({ orgId, to, notification, data, channels?, idempotencyKey?, executor? })\` from
+  \`#modules/notifications/services/notifier\`. \`to\` is \`{ user }\`, \`{ users }\`, \`{ role }\` or
+  \`{ permission }\` (role and permission need organizations; permission needs authz).
+- A notification is \`notifications/<name>.ts\` in a module: \`defineNotification({ name, schema, channels,
+  inApp?, email?, sms?, push? })\`, each renderer taking \`(data, language)\`.
+- Delivery runs through jobs (\`notifications.fanout\`, then one \`notifications.deliver\` per user); each
+  channel goes out once per recipient, and the same \`idempotencyKey\` never notifies anyone twice.
+  Pass \`executor\` (with the Postgres jobs driver) to send only if your transaction commits.
+- The inbox: \`GET /api/notifications\` (cursor), \`/unread-count\`, \`POST /read\`, and
+  \`POST|DELETE /push-tokens\` for devices. \`SMS_DRIVER=twilio\` and \`PUSH_DRIVER=fcm\` send for real.
+- In tests, jobs run inline: \`await (jobs.driver as InlineDriver).drain()\` after \`notify\`.
+`,
+		},
+	],
+};
+
 export const storage: Feature = {
 	id: "storage",
 	kind: "addon",
@@ -486,9 +652,22 @@ export const email: Feature = {
 	env: [
 		{
 			key: "EMAIL_DRIVER",
-			schema: 'localDefault(z.enum(["smtp", "console"]), "console")',
+			schema: 'localDefault(z.enum(["smtp", "mailgun", "console"]), "console")',
 			example: "smtp",
 			test: "console",
+		},
+		{
+			key: "MAILGUN_API_KEY",
+			schema: "z.string().optional()",
+			example: "",
+			comment: "For EMAIL_DRIVER=mailgun",
+		},
+		{ key: "MAILGUN_DOMAIN", schema: "z.string().optional()", example: "" },
+		{
+			key: "MAILGUN_API_URL",
+			schema: 'z.url().default("https://api.mailgun.net")',
+			example: "https://api.mailgun.net",
+			comment: "https://api.eu.mailgun.net for EU domains",
 		},
 		{
 			key: "SMTP_URL",
@@ -522,7 +701,9 @@ export const email: Feature = {
 			content: `## Email
 
 - \`sendEmail({ to, subject, text, html? })\` from \`#core/email/send\`. Locally it goes to Mailpit
-  (UI on \`MAILPIT_UI_PORT\`); tests use the console driver.
+  (UI on \`MAILPIT_UI_PORT\`); tests use the console driver; \`EMAIL_DRIVER=mailgun\` sends through Mailgun.
+- Templates: \`emails/<name>.ts\` in a module (\`defineEmail({ name, schema, render(data, language) })\` from
+  \`@tatara/email\`), sent with \`sendTemplate(name, to, data, language)\`.
 `,
 		},
 	],

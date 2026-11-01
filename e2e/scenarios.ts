@@ -4,7 +4,7 @@ export interface Scenario {
 	database: "postgres" | "mysql" | "none";
 	auth: "better-auth" | "none";
 	authMethods?: ("email-otp" | "phone-otp" | "password" | "keycloak" | "orgs")[];
-	addons: ("authz" | "jobs" | "cache" | "admin" | "storage" | "email" | "i18n")[];
+	addons: ("authz" | "jobs" | "cache" | "notifications" | "admin" | "storage" | "email" | "i18n")[];
 	pm: "pnpm" | "npm" | "bun";
 	/** after the other steps: `tatara eject <eject> --with-dependents`, then install and verify */
 	eject?: string;
@@ -28,7 +28,16 @@ function scenario(name: string, s: Omit<Scenario, "name" | "flags">): Scenario {
 	return { name, ...s, flags };
 }
 
-const ALL_ADDONS = ["authz", "jobs", "cache", "admin", "storage", "email", "i18n"] as const;
+const ALL_ADDONS = [
+	"authz",
+	"jobs",
+	"cache",
+	"notifications",
+	"admin",
+	"storage",
+	"email",
+	"i18n",
+] as const;
 const NO_AUTH_ADDONS = ["jobs", "cache", "storage", "email", "i18n"] as const;
 const ALL_METHODS = ["email-otp", "phone-otp", "password", "orgs"] as const;
 

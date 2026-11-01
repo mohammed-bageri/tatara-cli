@@ -1,6 +1,7 @@
 import { pino } from "pino";
 import { describe, expect, it, vi } from "vitest";
-import { createMailer } from "./index.ts";
+import { z } from "zod";
+import { createMailer, defineEmail, renderEmail } from "./index.ts";
 
 const sendMail = vi.fn(async () => ({}));
 vi.mock("nodemailer", () => ({ createTransport: vi.fn(() => ({ sendMail })) }));
@@ -34,5 +35,63 @@ describe("createMailer", () => {
 			subject: "Hi",
 			text: "Hello",
 		});
+	});
+});
+
+describe("the mailgun driver", () => {
+	it("posts the message to the domain's endpoint with the API key", async () => {
+		const fetch = vi.fn(async () => new Response("{}", { status: 200 }));
+		const mailer = createMailer({
+			driver: "mailgun",
+			mailgun: { apiKey: "key-1", domain: "mg.example.com", apiUrl: "https://api.eu.mailgun.net" },
+			from: "noreply@example.com",
+			logger: pino({ level: "silent" }),
+			fetch: fetch as unknown as typeof globalThis.fetch,
+		});
+		await mailer.send({ to: ["a@x", "b@x"], subject: "Hi", text: "Hello", html: "<p>Hello</p>" });
+		const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+		expect(url).toBe("https://api.eu.mailgun.net/v3/mg.example.com/messages");
+		expect((init.headers as Record<string, string>).authorization).toBe(
+			`Basic ${Buffer.from("api:key-1").toString("base64")}`,
+		);
+		const form = init.body as FormData;
+		expect(form.getAll("to")).toEqual(["a@x", "b@x"]);
+		expect(form.get("html")).toBe("<p>Hello</p>");
+	});
+
+	it("throws when Mailgun refuses, so a job retries", async () => {
+		const mailer = createMailer({
+			driver: "mailgun",
+			mailgun: { apiKey: "k", domain: "d" },
+			from: "f",
+			logger: pino({ level: "silent" }),
+			fetch: (async () => new Response("forbidden", { status: 401 })) as unknown as typeof fetch,
+		});
+		await expect(mailer.send({ to: "a@x", subject: "s", text: "t" })).rejects.toThrow(/401/);
+	});
+});
+
+describe("email templates", () => {
+	const welcome = defineEmail({
+		name: "users.welcome",
+		schema: z.object({ name: z.string().min(1) }),
+		render: ({ name }, language) =>
+			language === "ar"
+				? { subject: "أهلاً", text: `أهلاً ${name}` }
+				: { subject: "Welcome", text: `Hello ${name}` },
+	});
+
+	it("renders in the recipient's language", () => {
+		expect(renderEmail(welcome, { name: "Ada" }, "ar")).toEqual({
+			subject: "أهلاً",
+			text: "أهلاً Ada",
+		});
+		expect(renderEmail(welcome, { name: "Ada" }, "en").subject).toBe("Welcome");
+	});
+
+	it("refuses data the template's schema rejects", () => {
+		expect(() => renderEmail(welcome, { name: "" }, "en")).toThrow(
+			/Invalid data for email users.welcome/,
+		);
 	});
 });

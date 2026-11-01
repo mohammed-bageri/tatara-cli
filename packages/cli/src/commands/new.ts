@@ -48,7 +48,16 @@ function normalizeAuthFlags(flags: NewFlags): NewFlags {
 	methods.add("keycloak");
 	return { ...flags, auth: "better-auth", authMethods: [...methods].join(",") };
 }
-const ADDONS = ["authz", "jobs", "cache", "admin", "storage", "email", "i18n"] as const;
+const ADDONS = [
+	"authz",
+	"jobs",
+	"cache",
+	"notifications",
+	"admin",
+	"storage",
+	"email",
+	"i18n",
+] as const;
 const PMS = ["pnpm", "npm", "bun"] as const;
 
 function oneOf<T extends string>(value: string, allowed: readonly T[], flag: string): T {
@@ -159,6 +168,7 @@ async function prompt(name: string, flags: NewFlags): Promise<AppOptions> {
 		authz: "Permission system",
 		jobs: "Jobs + cron (BullMQ)",
 		cache: "Cache (Redis, Postgres or memory)",
+		notifications: "Notifications (in-app, email, SMS, push)",
 		admin: "Admin API app",
 		storage: "File storage",
 		email: "Email",
