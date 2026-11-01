@@ -1,7 +1,10 @@
-/** Built-in roles. Add a key here, then grant it permissions in module permission files. */
+/**
+ * Built-in roles. Add a key here, then grant it permissions in module permission files. A role is
+ * held only by those it's assigned to, unless `heldBy` says every org member or an identity role.
+ */
 export const SYSTEM_ROLES = [
-	{ key: "admin", name: "Admin", description: "Full access, including roles and members." },
-	{ key: "member", name: "Member", description: "Default role for every member." },
+	// tatara:slot admin
+	{ key: "member", name: "Member", description: "Every member of the org.", heldBy: "members" },
 	// tatara:slot roles
 ] as const;
 

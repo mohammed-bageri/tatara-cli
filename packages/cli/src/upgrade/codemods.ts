@@ -2,6 +2,7 @@ import { addonPackages } from "./codemods/addon-packages.ts";
 import { appOwnedAuth } from "./codemods/app-owned-auth.ts";
 import { authPackage } from "./codemods/auth-package.ts";
 import { authzPackage } from "./codemods/authz-package.ts";
+import { authzRoles } from "./codemods/authz-roles.ts";
 import { authzStores } from "./codemods/authz-stores.ts";
 import { corePackage } from "./codemods/core-package.ts";
 import { dbTesting } from "./codemods/db-testing.ts";
@@ -42,4 +43,5 @@ export const CODEMODS: readonly Codemod[] = [
 	jobsDrivers,
 	emailV2,
 	deployLedger,
+	authzRoles,
 ];

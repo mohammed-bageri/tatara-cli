@@ -8,5 +8,6 @@ export default defineConfig(
 		testing: "src/testing.ts",
 		prisma: "src/prisma.ts",
 		drizzle: "src/drizzle.ts",
+		"better-auth": "src/better-auth.ts",
 	}),
 );

@@ -40,6 +40,12 @@ export interface SystemRole {
 	readonly key: string;
 	readonly name: string;
 	readonly description: string;
+	/**
+	 * Who holds it without an assignment: `"members"`, every member of the org the caller acts in;
+	 * `"identity"`, anyone whose identity-provider roles include the key (staff, Keycloak roles).
+	 * Otherwise only those it's assigned to.
+	 */
+	readonly heldBy?: "members" | "identity";
 }
 
 export interface AuthzOptions {
@@ -121,14 +127,20 @@ export function createAuthz<K extends string = string>(options: AuthzOptions) {
 	const orgFor = (principal: Pick<Principal, "orgId">): string =>
 		principal.orgId ?? options.singleTenant ?? orgOf(principal);
 
+	const byMembers = systemRoles.filter((r) => r.heldBy === "members").map((r) => r.key);
+	const byIdentity: ReadonlySet<string> = new Set(
+		systemRoles.filter((r) => r.heldBy === "identity").map((r) => r.key),
+	);
 	/**
-	 * Roles that match a built-in role key are honoured as that role: the identity provider's
-	 * (`roles`) and the member's role in the org it acts in (`orgRole`).
+	 * Built-in roles held without an assignment (`SystemRole.heldBy`). better-auth's member role
+	 * only says the caller is a member (`orgRole` set): its value grants nothing.
 	 */
-	const impliedRoles = (principal: Who) =>
-		[...new Set([...principal.roles, ...(principal.orgRole?.split(",") ?? [])])]
-			.map((role) => role.trim())
-			.filter((role) => systemRoleKeys.has(role));
+	const impliedRoles = (principal: Who) => [
+		...new Set([
+			...principal.roles.map((role) => role.trim()).filter((role) => byIdentity.has(role)),
+			...(principal.orgRole != null ? byMembers : []),
+		]),
+	];
 
 	/**
 	 * Effective permissions = grants of the member's roles (assigned in the org, plus built-in
@@ -499,6 +511,8 @@ export type Authz<K extends string = string> = ReturnType<typeof createAuthz<K>>
 /**
  * Hooks for better-auth's organization plugin, so authz rows go with the membership; spread them
  * into the app's own `organization({ organizationHooks })`.
+ * @deprecated use `authzPlugin` from `@tatara/authz/better-auth`, which also keeps member roles
+ * to owner and member
  */
 export function authzOrganizationHooks(
 	authz: Pick<Authz, "removeMemberAccess" | "grantSystemRole">,
