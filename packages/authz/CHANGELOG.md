@@ -1,5 +1,11 @@
 # @tatara/authz
 
+## 0.5.1
+
+### Patch Changes
+
+- 96f8522: `authzPlugin`: owners hold the creator's role. A member made `owner` later gets it, and an owner made `member` loses it. Authz roles given to someone who was never owner are left alone.
+
 ## 0.5.0
 
 ### Minor Changes
