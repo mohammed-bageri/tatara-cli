@@ -28,7 +28,12 @@ const invoicePaid = defineNotification({
 });
 const notifications = [invoicePaid] as const;
 
-function setup(overrides: { failEmailTimes?: number } = {}) {
+function setup(
+	overrides: {
+		failEmailTimes?: number;
+		allow?: Parameters<typeof createNotifier>[0]["allow"];
+	} = {},
+) {
 	const store = memoryNotificationStore();
 	const emails: { to: string; subject: string }[] = [];
 	const texts: string[] = [];
@@ -70,6 +75,7 @@ function setup(overrides: { failEmailTimes?: number } = {}) {
 				return { invalidTokens: tokens.filter((t) => t.startsWith("dead")) };
 			},
 		},
+		...(overrides.allow ? { allow: overrides.allow } : {}),
 		logger,
 	});
 	consumers = [...notifier.consumers];
@@ -195,6 +201,31 @@ describe("notify", () => {
 		expect(() =>
 			defineNotification({ name: "x", description: "", schema: z.object({}), channels: ["email"] }),
 		).toThrow(/lists email but has no email\(\)/);
+	});
+});
+
+describe("the app's own rules", () => {
+	it("skips the channels the app says a user doesn't want", async () => {
+		const asked: string[] = [];
+		const t = setup({
+			async allow({ userId, channel, notification }) {
+				asked.push(`${userId}:${notification}:${channel}`);
+				// u1 opted out of SMS; nobody gets push
+				return !(channel === "push" || (userId === "u1" && channel === "sms"));
+			},
+		});
+		await t.store.addPushToken("u1", "tok", null);
+		await t.notifier.notify({
+			orgId: "o1",
+			to: { users: ["u1", "u2"] },
+			notification: "billing.invoice-paid",
+			data,
+		});
+		await t.driver.drain();
+		expect(t.texts).toHaveLength(1);
+		expect(t.pushes).toEqual([]);
+		expect(t.emails).toHaveLength(2);
+		expect(asked).toContain("u1:billing.invoice-paid:sms");
 	});
 });
 
