@@ -719,6 +719,16 @@ async function runScenario(
 			rmSync(join(dir, "src/modules/example/emails"), { recursive: true, force: true });
 			await sh(pmRun[0] ?? "pnpm", [...pmRun.slice(1), "typecheck"], "typecheck-no-emails");
 		})) &&
+		(await step("tatara add", async () => {
+			// growing an app later: jobs (and the cache it brings) onto one made without them
+			if (s.addons.includes("jobs") || s.database === "none") return "skipped";
+			await sh(tatara, ["add", "jobs"], "add-jobs");
+			const added = JSON.parse(readFileSync(join(dir, "tatara.json"), "utf8")) as {
+				addons: string[];
+			};
+			if (!added.addons.includes("cache"))
+				throw new Error("tatara add jobs didn't bring the cache");
+		})) &&
 		(await step("generators", async () => {
 			const made: string[] = [];
 			for (const g of GENERATORS) {

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { Command, Option } from "commander";
 import pc from "picocolors";
+import { addAddons } from "./commands/add.ts";
 import { runAppCli } from "./commands/app-cli.ts";
 import { check } from "./commands/check.ts";
 import { writeContracts } from "./commands/contracts.ts";
@@ -181,6 +182,18 @@ program
 		const routes = await listRoutes(loadProject());
 		if (flags.json) console.log(JSON.stringify(routes, null, 2));
 		else printRoutes(routes);
+	});
+
+program
+	.command("add <addons...>")
+	.description("Add add-ons to this app: their files, packages and env (and the add-ons they need)")
+	.action(async (addons: string[]) => {
+		const report = await addAddons(loadProject(), addons);
+		console.log(pc.green(`added ${report.added.join(", ")}`));
+		for (const file of report.written) console.log(`  ${pc.green("✔")} ${file}`);
+		for (const file of report.merge) console.log(`  ${pc.yellow("merge by hand")} ${file}`);
+		for (const note of report.notes) console.log(pc.dim(note));
+		if (!(await verify(loadProject()))) process.exitCode = 1;
 	});
 
 program
