@@ -108,6 +108,43 @@ describe("tatara add", () => {
 		expect(second.merge).toContain("src/apps/api/server.ts");
 	});
 
+	it("refuses names that aren't add-ons, and apps on another CLI version", async () => {
+		const project = await app();
+		await expect(addAddons(project, ["postgres"], quiet)).rejects.toThrow(/not an add-on/);
+		const config = JSON.parse(read(project.root, "tatara.json"));
+		writeFileSync(
+			join(project.root, "tatara.json"),
+			JSON.stringify({ ...config, version: "0.9.0" }),
+		);
+		await expect(addAddons(loadProject(project.root), ["cache"], quiet)).rejects.toThrow(
+			/tatara upgrade/,
+		);
+	});
+
+	it("leaves the rest of pnpm-workspace.yaml, a build the app refused, deleted files and commented keys alone", async () => {
+		const project = await app((root) => {
+			writeFileSync(
+				join(root, "pnpm-workspace.yaml"),
+				'allowBuilds:\n  "esbuild": true\n  msgpackr-extract: false\noverrides:\n  esbuild: ^0.25.0\n',
+			);
+			writeFileSync(join(root, ".env"), "PORT=3000\n# REDIS_URL=redis://elsewhere\n");
+		});
+		const { rmSync } = await import("node:fs");
+		rmSync(join(project.root, "tsdown.config.ts"));
+		const report = await addAddons(project, ["jobs"], {
+			...quiet,
+			baseline: {
+				isUnchanged: async (p, c) => project.config.generated?.files[p] === hashContent(c),
+			},
+		});
+		const workspace = read(project.root, "pnpm-workspace.yaml");
+		expect(workspace).toContain("msgpackr-extract: false");
+		expect(workspace).toContain("overrides:\n  esbuild: ^0.25.0");
+		expect(report.written).not.toContain("tsdown.config.ts");
+		expect(report.notes.join("\n")).toContain("tsdown.config.ts");
+		expect(read(project.root, ".env").match(/REDIS_URL=/g)).toHaveLength(1);
+	});
+
 	it("refuses an add-on the app has, or one its setup can't take", async () => {
 		const project = await app();
 		await expect(addAddons(project, ["authz", "authz"], quiet)).resolves.toBeDefined();

@@ -339,12 +339,14 @@ export function createAuthz<K extends string = string>(options: AuthzOptions) {
 		key: string,
 		actorId: string | null = null,
 	): Promise<boolean> {
-		// built-in roles live in code; a database that hasn't synced them yet gets them now
-		const role =
-			(await store.findRoleByKey(SYSTEM_ORG_ID, key)) ??
-			(systemRoleKeys.has(key)
-				? await syncSystemRoles().then(() => store.findRoleByKey(SYSTEM_ORG_ID, key))
-				: null);
+		// built-in roles live in code; a database that hasn't synced them yet gets them now (another
+		// request syncing at the same moment may win the insert: then the role is there)
+		const find = () => store.findRoleByKey(SYSTEM_ORG_ID, key);
+		let role = await find();
+		if (!role && systemRoleKeys.has(key)) {
+			await syncSystemRoles().catch(() => undefined);
+			role = await find();
+		}
 		if (!role) throw new Error(`No built-in role "${key}" in system-roles`);
 		return assignRole(actorId, orgId, userId, role.id);
 	}
@@ -516,7 +518,8 @@ export function authzOrganizationHooks(
 						organization: { id: string };
 						member: { userId: string };
 					}) => {
-						await authz.grantSystemRole(organization.id, member.userId, creatorRole);
+						// self-assigned, so the audit log shows who it was
+						await authz.grantSystemRole(organization.id, member.userId, creatorRole, member.userId);
 					},
 				}
 			: {}),

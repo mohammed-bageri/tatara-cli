@@ -429,7 +429,7 @@ export const authOrgs: Feature = {
 				"\torganizationHooks: {",
 				"\t\t// whoever creates an org administers it (pick another built-in role, or drop this)",
 				"\t\tafterCreateOrganization: async ({ organization, member }) => {",
-				'\t\t\tawait authz.grantSystemRole(organization.id, member.userId, "admin");',
+				'\t\t\tawait authz.grantSystemRole(organization.id, member.userId, "admin", member.userId);',
 				"\t\t},",
 				"\t\t// authz roles and overlays go with the membership, so re-adding someone starts clean",
 				"\t\tafterRemoveMember: async ({ member }) => {",

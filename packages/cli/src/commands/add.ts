@@ -3,7 +3,9 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { devEnvFromExample, renderApp } from "../engine/generate.ts";
 import { OptionsError, validateOptions } from "../engine/resolve.ts";
+import { FEATURES } from "../features/index.ts";
 import type { Addon, AppOptions } from "../features/types.ts";
+import { cliVersion } from "../paths.ts";
 import { loadProject, type Project, type ProjectConfig } from "../project/config.ts";
 import { hashTrackedFiles } from "../project/hashes.ts";
 import { type Baseline, createBaseline } from "../upgrade/baseline.ts";
@@ -41,7 +43,8 @@ const envKeys = (text: string) =>
 	new Set(
 		text
 			.split("\n")
-			.map((line) => /^([A-Z0-9_]+)=/.exec(line)?.[1])
+			// a commented-out key counts: the app turned it off on purpose
+			.map((line) => /^#?\s*([A-Z0-9_]+)=/.exec(line)?.[1])
 			.filter((key): key is string => Boolean(key)),
 	);
 
@@ -78,20 +81,30 @@ function withMissingPackages(current: string, rendered: string): string {
 	return `${JSON.stringify(pkg, null, "\t")}\n`;
 }
 
-/** The app's pnpm-workspace.yaml allowing the install scripts the add-ons need (pnpm stops otherwise). */
+/**
+ * The app's pnpm-workspace.yaml allowing the install scripts the add-ons need (pnpm stops at one
+ * nobody decided on). Only `allowBuilds` changes, and a build the app set to false stays false.
+ */
 function withAllowedBuilds(current: string, rendered: string): string {
 	const wanted = [...rendered.matchAll(/^ {2}"?([^":\s]+)"?: true$/gm)].map((m) => m[1] as string);
-	let lines = current.replace(/^allowBuilds: \{\}$/m, "allowBuilds:").split("\n");
+	const lines = current.replace(/^allowBuilds: \{\}$/m, "allowBuilds:").split("\n");
+	let header = lines.findIndex((line) => line === "allowBuilds:");
+	if (header < 0) {
+		lines.splice(lines.length - (lines.at(-1) === "" ? 1 : 0), 0, "allowBuilds:");
+		header = lines.indexOf("allowBuilds:");
+	}
+	let end = header + 1;
+	while (end < lines.length && /^\s+\S/.test(lines[end] ?? "")) end++;
 	for (const name of wanted) {
-		const entry = `  "${name}": true`;
-		const at = lines.findIndex((line) =>
-			new RegExp(`^ {2}"?${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"?:`).test(line),
-		);
-		if (at >= 0) lines[at] = entry;
-		else {
-			const header = lines.findIndex((line) => line === "allowBuilds:");
-			if (header >= 0) lines.splice(header + 1, 0, entry);
-			else lines = [...lines.filter(Boolean), "allowBuilds:", entry, ""];
+		const at = lines
+			.slice(header + 1, end)
+			.findIndex((line) => line.trim().replace(/^"/, "").split(/"?:/)[0] === name);
+		if (at < 0) {
+			lines.splice(header + 1, 0, `  "${name}": true`);
+			end++;
+		} else if (!/:\s*(true|false)\s*$/.test(lines[header + 1 + at] ?? "")) {
+			// pnpm's "set this to true or false" placeholder: the add-on needs it
+			lines[header + 1 + at] = `  "${name}": true`;
 		}
 	}
 	return lines.join("\n");
@@ -106,6 +119,17 @@ export async function addAddons(
 	requested: string[],
 	opts: AddOptions = {},
 ): Promise<AddReport> {
+	const known = Object.values(FEATURES)
+		.filter((f) => f.kind === "addon")
+		.map((f) => f.id);
+	const unknown = requested.filter((a) => !known.includes(a));
+	if (unknown.length > 0)
+		throw new OptionsError(`${unknown.join(", ")}: not an add-on (add-ons: ${known.join(", ")})`);
+	// the files an add-on touches render with this CLI's templates; they must match the app's packages
+	if (project.config.version !== cliVersion())
+		throw new OptionsError(
+			`The app is on tatara ${project.config.version} and this CLI is ${cliVersion()}: run tatara upgrade first`,
+		);
 	const before = optionsOf(project.config);
 	const unknownOrPresent = requested.filter((a) => before.addons.includes(a as Addon));
 	if (unknownOrPresent.length > 0)
@@ -121,9 +145,10 @@ export async function addAddons(
 	const abs = (path: string) => join(project.root, path);
 	const read = async (path: string) =>
 		existsSync(abs(path)) ? readFile(abs(path), "utf8") : undefined;
+	// decide everything first: nothing is written if a check fails halfway
+	const writes: [string, string][] = [];
 	const write = async (path: string, text: string) => {
-		await mkdir(dirname(abs(path)), { recursive: true });
-		await writeFile(abs(path), text);
+		writes.push([path, text]);
 	};
 
 	const merged: string[] = [];
@@ -141,7 +166,12 @@ export async function addAddons(
 			}
 			continue;
 		}
-		if (current === undefined) {
+		if (current === undefined && old.has(path)) {
+			// the app deleted it
+			report.notes.push(
+				`${path} was deleted in the app, so it wasn't brought back; the add-on changes it.`,
+			);
+		} else if (current === undefined) {
 			await write(path, text);
 			report.written.push(path);
 		} else if (old.has(path) && (await baseline.isUnchanged(path, current))) {
@@ -158,6 +188,11 @@ export async function addAddons(
 	if (dotEnv !== undefined) {
 		const next = withMissingEnv(dotEnv, devEnvFromExample(after));
 		if (next !== dotEnv) await write(".env", next);
+	}
+
+	for (const [path, text] of writes) {
+		await mkdir(dirname(abs(path)), { recursive: true });
+		await writeFile(abs(path), text);
 	}
 
 	const format = opts.formatFile ?? biomeFormat;
