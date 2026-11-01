@@ -703,6 +703,12 @@ async function runScenario(
 			if (!caught) throw new Error("contracts --check passed on a stale file");
 			await sh(tatara, ["contracts"], "contracts");
 		})) &&
+		(await step("without example templates", async () => {
+			// apps delete the examples; an empty convention folder must still compile
+			if (!s.addons.includes("email")) return "skipped";
+			rmSync(join(dir, "src/modules/example/emails"), { recursive: true, force: true });
+			await sh(pmRun[0] ?? "pnpm", [...pmRun.slice(1), "typecheck"], "typecheck-no-emails");
+		})) &&
 		(await step("generators", async () => {
 			const made: string[] = [];
 			for (const g of GENERATORS) {
