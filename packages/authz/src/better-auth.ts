@@ -7,6 +7,7 @@ import {
 	getSessionFromCtx,
 } from "better-auth/api";
 import type { Authz } from "./authz.ts";
+import { SYSTEM_ORG_ID } from "./constants.ts";
 
 export interface AuthzPluginOptions<K extends string> {
 	/** built-in role an org's creator gets (default `"admin"`); `false` gives none */
@@ -64,12 +65,16 @@ async function orgsNamed(ctx: HookCtx, activeOrgId: unknown): Promise<string[]> 
 
 /**
  * Hands org access to authz: better-auth keeps who belongs to which org (members `owner` and
- * `member` only), and authz decides what they may do. The creator gets `creatorRole`, a member
+ * `member` only), and authz decides what they may do. Owners hold `creatorRole`: the creator gets
+ * it, so does a member made owner later, and an owner made member loses it. A member
  * removed or leaving loses their authz roles and overlays, and `endpoints` puts better-auth's own
  * org endpoints behind authz permissions. Add it after `organization()`.
  */
 export function authzPlugin<K extends string>(
-	authz: Pick<Authz<K>, "grantSystemRole" | "removeMemberAccess" | "checkPermission">,
+	authz: Pick<
+		Authz<K>,
+		"grantSystemRole" | "removeMemberAccess" | "checkPermission" | "revokeRole" | "store"
+	>,
 	options: AuthzPluginOptions<K> = {},
 ) {
 	const creatorRole = options.creatorRole ?? "admin";
@@ -107,6 +112,46 @@ export function authzPlugin<K extends string>(
 		}
 	});
 
+	// update-member-role: the target's role before the change, so the after hook can tell a former
+	// owner from someone who never was one (keyed on the request body, which both hooks see)
+	const before = new WeakMap<object, string>();
+	const rememberRole: AuthMiddleware = createAuthMiddleware(async (ctx) => {
+		const body = record(ctx.body);
+		if (typeof body.memberId !== "string" || !ctx.body) return;
+		const member = await ctx.context.adapter.findOne<{ role: string }>({
+			model: "member",
+			where: [{ field: "id", value: body.memberId }],
+		});
+		if (member) before.set(ctx.body as object, member.role);
+	});
+
+	/** Owners hold the creator's role: given on becoming owner, taken on ceasing to be one. */
+	const ownership: AuthMiddleware = createAuthMiddleware(async (ctx) => {
+		const returned = ctx.context.returned;
+		if (!creatorRole || !returned || returned instanceof Error || returned instanceof Response)
+			return;
+		const member = record(returned);
+		if (typeof member.organizationId !== "string" || typeof member.userId !== "string") return;
+		const actor = (await sessionOf(ctx))?.user.id ?? null;
+		const wasOwner = rolesIn(ctx.body ? before.get(ctx.body as object) : undefined).includes(
+			"owner",
+		);
+		const isOwner = rolesIn(member.role).includes("owner");
+		if (isOwner && !wasOwner)
+			await authz.grantSystemRole(member.organizationId, member.userId, creatorRole, actor);
+		if (wasOwner && !isOwner) {
+			const role = await authz.store.findRoleByKey(SYSTEM_ORG_ID, creatorRole);
+			const held = await authz.store.memberRoles(member.organizationId, member.userId);
+			if (role && held.some((r) => r.id === role.id))
+				await authz.revokeRole(
+					actor ?? member.userId,
+					member.organizationId,
+					member.userId,
+					role.id,
+				);
+		}
+	});
+
 	const lifecycle: AuthMiddleware = createAuthMiddleware(async (ctx) => {
 		const returned = ctx.context.returned;
 		if (!returned || returned instanceof Error || returned instanceof Response) return;
@@ -129,6 +174,10 @@ export function authzPlugin<K extends string>(
 			before: [
 				{ matcher: (ctx) => settingRole.has(ctx.path ?? ""), handler: lockRoles },
 				{ matcher: (ctx) => (ctx.path ?? "") in endpoints, handler: guard },
+				{
+					matcher: (ctx) => ctx.path === "/organization/update-member-role",
+					handler: rememberRole,
+				},
 			],
 			after: [
 				{
@@ -138,6 +187,7 @@ export function authzPlugin<K extends string>(
 						ctx.path === "/organization/leave",
 					handler: lifecycle,
 				},
+				{ matcher: (ctx) => ctx.path === "/organization/update-member-role", handler: ownership },
 			],
 		},
 	} satisfies BetterAuthPlugin;
