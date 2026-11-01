@@ -332,6 +332,23 @@ export function createAuthz<K extends string = string>(options: AuthzOptions) {
 		return added;
 	}
 
+	/** Gives a member a built-in role by key (e.g. "admin" to an org's creator); false if they had it. */
+	async function grantSystemRole(
+		orgId: string,
+		userId: string,
+		key: string,
+		actorId: string | null = null,
+	): Promise<boolean> {
+		// built-in roles live in code; a database that hasn't synced them yet gets them now
+		const role =
+			(await store.findRoleByKey(SYSTEM_ORG_ID, key)) ??
+			(systemRoleKeys.has(key)
+				? await syncSystemRoles().then(() => store.findRoleByKey(SYSTEM_ORG_ID, key))
+				: null);
+		if (!role) throw new Error(`No built-in role "${key}" in system-roles`);
+		return assignRole(actorId, orgId, userId, role.id);
+	}
+
 	async function revokeRole(actorId: string, orgId: string, userId: string, roleId: string) {
 		const removed = await store.revokeRole(orgId, userId, roleId);
 		if (!removed) throw new NotFoundError("Role assignment");
@@ -464,6 +481,7 @@ export function createAuthz<K extends string = string>(options: AuthzOptions) {
 		deleteRole,
 		getMember,
 		assignRole,
+		grantSystemRole,
 		revokeRole,
 		removeMemberAccess,
 		addOverlay,
@@ -480,8 +498,28 @@ export type Authz<K extends string = string> = ReturnType<typeof createAuthz<K>>
  * Hooks for better-auth's organization plugin, so authz rows go with the membership; spread them
  * into the app's own `organization({ organizationHooks })`.
  */
-export function authzOrganizationHooks(authz: Pick<Authz, "removeMemberAccess">) {
+export function authzOrganizationHooks(
+	authz: Pick<Authz, "removeMemberAccess" | "grantSystemRole">,
+	options: {
+		/** the built-in role whoever creates an org gets (Sana: "admin"); false gives none */
+		creatorRole?: string | false;
+	} = {},
+) {
+	const creatorRole = options.creatorRole ?? "admin";
 	return {
+		...(creatorRole
+			? {
+					afterCreateOrganization: async ({
+						organization,
+						member,
+					}: {
+						organization: { id: string };
+						member: { userId: string };
+					}) => {
+						await authz.grantSystemRole(organization.id, member.userId, creatorRole);
+					},
+				}
+			: {}),
 		// authz rows outlive better-auth's member row; without this, re-adding restores old roles
 		afterRemoveMember: async ({
 			member,

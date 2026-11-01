@@ -229,6 +229,26 @@ describe("tenant context", () => {
 		await hooks.afterRemoveMember({ member: { organizationId: "org-a", userId: "u1" } });
 		expect(await authz.checkPermission(who("u1", [], "org-a"), "doc:publish")).toBe(false);
 	});
+
+	it("grants a built-in role by key, once, syncing built-in roles if the database has none", async () => {
+		expect(await authz.grantSystemRole("org-a", "u7", "admin")).toBe(true);
+		expect(await authz.grantSystemRole("org-a", "u7", "admin")).toBe(false);
+		expect(await authz.resolveScope(who("u7", [], "org-a"), "doc:read")).toBe("org");
+		await expect(authz.grantSystemRole("org-a", "u7", "nope")).rejects.toThrow(
+			/No built-in role "nope"/,
+		);
+	});
+
+	it("makes an org's creator its admin through the organization hooks", async () => {
+		await authz.syncSystemRoles();
+		const { authzOrganizationHooks } = await import("./index.ts");
+		const hooks = authzOrganizationHooks(authz, { creatorRole: "admin" });
+		await hooks.afterCreateOrganization?.({
+			organization: { id: "org-new" },
+			member: { userId: "u8" },
+		});
+		expect(await authz.resolveScope(who("u8", [], "org-new"), "doc:read")).toBe("org");
+	});
 });
 
 describe("requirePermission", () => {
