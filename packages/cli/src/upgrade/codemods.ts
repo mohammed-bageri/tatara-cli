@@ -12,6 +12,7 @@ import { frameworkTests } from "./codemods/framework-tests.ts";
 import { httpLimits } from "./codemods/http-limits.ts";
 import { httpPackage } from "./codemods/http-package.ts";
 import { jobsDrivers } from "./codemods/jobs-drivers.ts";
+import { notifierRoles } from "./codemods/notifier-roles.ts";
 import { packageCommands } from "./codemods/package-commands.ts";
 import type { UpgradeContext } from "./context.ts";
 
@@ -44,4 +45,5 @@ export const CODEMODS: readonly Codemod[] = [
 	emailV2,
 	deployLedger,
 	authzRoles,
+	notifierRoles,
 ];

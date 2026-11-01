@@ -527,8 +527,12 @@ export const notifications: Feature = {
 			when: ["auth-orgs", "authz"],
 			content: [
 				"recipients: {",
+				"\t// authz roles (assigned, or held by every member): better-auth's member role is only owner or member",
 				"\tasync *role(orgId, role) {",
-				`\t\tfor await (const m of members(orgId)) if (${hasRole}) yield m.userId;`,
+				"\t\tfor await (const m of members(orgId)) {",
+				'\t\t\tconst who = { userId: m.userId, orgId, orgRole: m.role, roles: [], kind: "user" as const, claims: {} };',
+				"\t\t\tif ((await authz.effectivePermissions(who)).roles.includes(role)) yield m.userId;",
+				"\t\t}",
 				"\t},",
 				"\t// the same check a request makes: built-in roles, assigned roles and overlays",
 				"\tasync *permission(orgId, permission) {",
@@ -545,7 +549,7 @@ export const notifications: Feature = {
 			slot: "imports",
 			when: ["auth-orgs", "authz"],
 			content:
-				'import { checkPermission } from "#core/authz/index";\nimport type { PermissionKey } from "#generated/permissions";',
+				'import { authz, checkPermission } from "#core/authz/index";\nimport type { PermissionKey } from "#generated/permissions";',
 		},
 		{
 			file: "src/modules/notifications/services/notifier.ts",
