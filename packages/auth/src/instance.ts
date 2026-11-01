@@ -52,15 +52,18 @@ export function createAuthInstance<O extends BetterAuthOptions>(
 	) as unknown as MiddlewareHandler<Env>;
 
 	/**
-	 * The org the request acts in: the `x-org-id` header, else the session's active org. The
-	 * caller must be a member; `principal.orgId` and `orgRole` are set from the member row.
+	 * The org the request acts in: the `x-org-id` header, else the session's active org; or, with
+	 * `param`, the path's (`/orgs/:orgId/...`), which nothing else overrides. The caller must be a
+	 * member; `principal.orgId` and `orgRole` are set from the member row.
 	 */
-	function requireOrg(opts: { header?: string } = {}): MiddlewareHandler<Env> {
+	function requireOrg(opts: { header?: string; param?: string } = {}): MiddlewareHandler<Env> {
 		const header = opts.header ?? "x-org-id";
 		return createMiddleware<AuthEnv>(async (c, next) => {
 			const principal = c.get("principal");
 			if (!principal) throw new UnauthorizedError();
-			const orgId = c.req.header(header) ?? principal.orgId;
+			const orgId = opts.param
+				? c.req.param(opts.param)
+				: (c.req.header(header) ?? principal.orgId);
 			if (!orgId) throw new OrgRequiredError();
 			// a service token is issued for one org; a token's org claim beats member rows it left behind
 			const vouched =

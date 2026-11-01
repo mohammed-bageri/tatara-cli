@@ -59,6 +59,7 @@ function app() {
 	});
 	app.use(attachPrincipal);
 	app.get("/org", requireOrg(), (c) => c.json(currentPrincipal(c)));
+	app.get("/orgs/:orgId/me", requireOrg({ param: "orgId" }), (c) => c.json(currentPrincipal(c)));
 	handleErrors(app);
 	return app;
 }
@@ -107,6 +108,18 @@ describe("requireOrg", () => {
 		expect(
 			(await app().request("/org", { headers: { ...headers, "x-org-id": orgId } })).status,
 		).toBe(403);
+	});
+
+	it("takes the org from the path when told to, and the header can't override it", async () => {
+		const { orgId, userId, headers } = await member("teacher");
+		const ok = await app().request(`/orgs/${orgId}/me`, { headers });
+		expect(ok.status).toBe(200);
+		expect(await ok.json()).toMatchObject({ userId, orgId, orgRole: "teacher" });
+		const { orgId: other } = await member();
+		const spoofed = await app().request(`/orgs/${other}/me`, {
+			headers: { ...headers, "x-org-id": orgId },
+		});
+		expect(spoofed.status).toBe(403);
 	});
 
 	it("401s without a principal", async () => {
