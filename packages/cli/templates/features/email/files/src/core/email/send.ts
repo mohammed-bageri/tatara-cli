@@ -1,4 +1,4 @@
-import { createMailer, renderEmail } from "@tatara/email";
+import { createMailer, type EmailDefinition, renderEmail } from "@tatara/email";
 import { env } from "#core/config/env";
 import { logger } from "#core/logging/logger";
 import type { emails } from "#generated/emails";
@@ -27,7 +27,8 @@ export async function sendTemplate<N extends keyof Templates & string>(
 ): Promise<void> {
 	// loaded on first use: core doesn't import module code until it's needed
 	const { emails: all } = await import("#generated/emails");
-	const template = all.find((e) => e.name === name);
+	// read as any template: an app without templates has an empty list
+	const template = (all as readonly EmailDefinition[]).find((e) => e.name === name);
 	if (!template) throw new Error(`No email template named "${name}"`);
 	await sendEmail({ to, ...renderEmail(template, data, language) });
 }
