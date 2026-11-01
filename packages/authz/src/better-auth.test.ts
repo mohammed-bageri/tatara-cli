@@ -137,6 +137,24 @@ describe("authzPlugin", () => {
 		expect(sneaky.status).toBe(403);
 	});
 
+	it("gives an owner made later the creator's role, and takes it from one who stops being owner", async () => {
+		const { orgId, owner, member, memberRowId } = await orgWithMember();
+		const promote = (role: string) =>
+			t.call("update-member-role", owner.headers, {
+				organizationId: orgId,
+				memberId: memberRowId,
+				role,
+			});
+		expect((await promote("owner")).status).toBe(200);
+		expect(await t.authz.checkPermission(asMember(member.id, orgId), "people:list")).toBe(true);
+		expect((await promote("member")).status).toBe(200);
+		expect(await t.authz.checkPermission(asMember(member.id, orgId), "people:list")).toBe(false);
+		// admin given through authz, to someone who was never owner, stays when their member role changes
+		await t.authz.grantSystemRole(orgId, member.id, "admin", owner.id);
+		expect((await promote("member")).status).toBe(200);
+		expect(await t.authz.checkPermission(asMember(member.id, orgId), "people:list")).toBe(true);
+	});
+
 	it("clears authz access when a member is removed or leaves", async () => {
 		const { orgId, owner, member, memberRowId } = await orgWithMember();
 		await t.authz.addOverlay(null, orgId, member.id, {
