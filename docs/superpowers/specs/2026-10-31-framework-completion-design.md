@@ -92,4 +92,7 @@ Calls made while building, beyond the table above:
 
 ## Planned (found in apps)
 
-- **Org roles in one place.** An app with its own org roles (MeemAin: manager, teacher, player) declares them twice: as authz built-in roles, and in better-auth's `organization({ roles })` access control, which rejects roles it doesn't know. tatara could build better-auth's roles from `system-roles.ts`.
+- **Org roles in one place (done, authz 0.5.0).** Found in MeemAin: app roles declared as better-auth member roles let a manager make themselves `admin`.
+  - better-auth's member role is now membership only (`owner` or `member`), and app roles are authz roles.
+  - `authzPlugin` from `@tatara/authz/better-auth` handles the org lifecycle, refuses other member roles, and puts better-auth's member lists behind authz permissions.
+  - `SystemRole.heldBy` replaces implying roles from whatever role name better-auth stores.

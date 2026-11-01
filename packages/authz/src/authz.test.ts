@@ -18,13 +18,18 @@ import { memoryAuthzStore } from "./testing.ts";
 
 const docs = definePermissions({
 	resources: { doc: { read: { scoped: true }, publish: { scoped: false } } },
-	roleGrants: { member: [["doc", "read", "own"]], admin: [["doc", "read", "org"]] },
+	roleGrants: {
+		member: [["doc", "read", "own"]],
+		admin: [["doc", "read", "org"]],
+		support: [["doc", "read", "team"]],
+	},
 });
 type Key = PermissionKeysOf<typeof authzPermissions> | PermissionKeysOf<typeof docs>;
 const catalog = mergeCatalogs(authzPermissions, docs);
 const SYSTEM_ROLES = [
 	{ key: "admin", name: "Admin", description: "Full access" },
-	{ key: "member", name: "Member", description: "Everyone" },
+	{ key: "member", name: "Member", description: "Everyone", heldBy: "members" },
+	{ key: "support", name: "Support", description: "Staff", heldBy: "identity" },
 ] as const;
 
 interface Env extends HttpEnv {
@@ -135,12 +140,19 @@ describe("createAuthz", () => {
 		).toThrow(/"admn"/);
 	});
 
-	it("resolves role grants, implied identity-provider roles and the widest scope", async () => {
+	it("resolves assigned role grants and the widest scope", async () => {
 		await grantSystemRole("u1", "member");
 		expect(await authz.resolveScope(who("u1"), "doc:read")).toBe("own");
-		// "admin" from the identity provider counts as the built-in admin role
-		expect(await authz.resolveScope(who("u1", ["admin"]), "doc:read")).toBe("org");
+		await grantSystemRole("u1", "admin");
+		expect(await authz.resolveScope(who("u1"), "doc:read")).toBe("org");
 		expect(await authz.checkPermission(who("u2"), "doc:read", "own")).toBe(false);
+	});
+
+	it("implies an identity-provider role only for roles held by identity", async () => {
+		await authz.syncSystemRoles();
+		expect(await authz.resolveScope(who("u1", ["support"]), "doc:read")).toBe("team");
+		// an identity-provider "admin" (better-auth's admin plugin) is not the org's admin
+		expect(await authz.resolveScope(who("u1", ["admin"]), "doc:read")).toBeNull();
 	});
 
 	it("drops cached permissions when access changes", async () => {
@@ -166,7 +178,10 @@ describe("createAuthz", () => {
 	});
 
 	it("syncs built-in roles idempotently", async () => {
-		expect(await authz.syncSystemRoles()).toEqual({ created: ["admin", "member"], updated: [] });
+		expect(await authz.syncSystemRoles()).toEqual({
+			created: ["admin", "member", "support"],
+			updated: [],
+		});
 		expect(await authz.syncSystemRoles()).toEqual({ created: [], updated: [] });
 	});
 
@@ -207,15 +222,12 @@ describe("tenant context", () => {
 		expect(await single.checkPermission(who("u1", [], null), "doc:publish")).toBe(true);
 	});
 
-	it("honours the member's org role as a built-in role in that org", async () => {
+	it("gives every member of the org the roles held by members, whatever their member role", async () => {
 		await authz.syncSystemRoles();
-		expect(await authz.resolveScope(who("u1", [], "org-a", "admin"), "doc:read")).toBe("org");
-		expect(await authz.resolveScope(who("u1", [], "org-a", "nobody"), "doc:read")).toBeNull();
-	});
-
-	it("reads every role of a member with several (better-auth stores them comma-separated)", async () => {
-		await authz.syncSystemRoles();
-		expect(await authz.resolveScope(who("u1", [], "org-a", "owner,admin"), "doc:read")).toBe("org");
+		expect(await authz.resolveScope(who("u1", [], "org-a", "member"), "doc:read")).toBe("own");
+		// better-auth's member role is membership only: "admin" there is not authz's admin
+		expect(await authz.resolveScope(who("u1", [], "org-a", "owner,admin"), "doc:read")).toBe("own");
+		expect(await authz.resolveScope(who("u1", [], "org-a", null), "doc:read")).toBeNull();
 	});
 
 	it("removes a member's access through the organization hooks it gives better-auth", async () => {
@@ -284,7 +296,8 @@ describe("authorizationRoutes options", () => {
 });
 
 describe("authorizationRoutes", () => {
-	const admin = { "x-user": "admin-1", "x-roles": "admin", "content-type": "application/json" };
+	const admin = { "x-user": "admin-1", "content-type": "application/json" };
+	beforeEach(() => grantSystemRole("admin-1", "admin"));
 
 	it("forbids listing roles without role:read", async () => {
 		const res = await app().request("/authorization/roles", { headers: { "x-user": "u1" } });
@@ -295,7 +308,11 @@ describe("authorizationRoutes", () => {
 		await authz.syncSystemRoles();
 		const res = await app().request("/authorization/roles", { headers: admin });
 		const body = (await res.json()) as { data: { key: string; isSystem: boolean }[] };
-		expect(body.data.filter((r) => r.isSystem).map((r) => r.key)).toEqual(["admin", "member"]);
+		expect(body.data.filter((r) => r.isSystem).map((r) => r.key)).toEqual([
+			"admin",
+			"member",
+			"support",
+		]);
 	});
 
 	it("rejects custom roles and overlays that grant authorization itself", async () => {
@@ -351,7 +368,7 @@ describe("authorizationRoutes", () => {
 		await authz.syncSystemRoles();
 		const res = await app().request("/authorization/roles", {
 			method: "POST",
-			headers: { "x-user": "admin-1", "x-roles": "admin" },
+			headers: { "x-user": "admin-1" },
 		});
 		expect(res.status).toBe(400);
 	});

@@ -9,8 +9,11 @@ const AUTHZ_AGENTS = `## Permissions (authz)
 - Guard routes with \`middleware: [requirePermission("project:read")]\` from \`#core/authz/index\`
   and declare \`security: [{ bearerAuth: ["project:read"] }]\`. For scoped actions, call
   \`resolveScope(principal, "doc:read")\` in the service and filter rows by the returned scope.
-- Effective permissions = role grants (assigned roles + built-in roles whose key matches an
-  identity-provider role) + grant overlays − deny overlays. Deny always wins.
+- Effective permissions = grants of the caller's roles + grant overlays − deny overlays. Deny
+  always wins. Roles are assigned in authz (the org's creator gets \`admin\`); a built-in role with
+  \`heldBy: "members"\` goes to every member, \`heldBy: "identity"\` to holders of that identity role.
+- better-auth's member role is membership only (\`owner\` or \`member\`): \`authzPlugin\` in
+  \`src/modules/users/services/auth.ts\` refuses others and gives the creator \`admin\`.
 - Custom roles and grant overlays can never grant \`role\`, \`member\` or \`audit_log\`.
 - Built-in roles live in \`src/core/authz/system-roles.ts\`. \`authz:sync-permissions\` brings the database
   in line with them; \`deploy\` runs it every deploy, \`db:seed\` locally.
@@ -23,6 +26,21 @@ export const authz: Feature = {
 	label: "Permission system",
 	dependencies: ["@tatara/authz"],
 	slots: [
+		{
+			file: "src/core/authz/system-roles.ts",
+			slot: "admin",
+			unless: ["auth-keycloak"],
+			content:
+				'{ key: "admin", name: "Admin", description: "Full access, including roles and members." },',
+		},
+		{
+			// Keycloak's realm roles are the app's roles: a token with "admin" is the admin
+			file: "src/core/authz/system-roles.ts",
+			slot: "admin",
+			when: ["auth-keycloak"],
+			content:
+				'{ key: "admin", name: "Admin", description: "Full access, including roles and members.", heldBy: "identity" },',
+		},
 		{
 			// without organizations the app has one tenant; say so instead of falling back silently
 			file: "src/core/authz/index.ts",
@@ -365,7 +383,7 @@ export const admin: Feature = {
 			file: "src/core/authz/system-roles.ts",
 			slot: "roles",
 			content:
-				'{ key: "staff", name: "Staff", description: "Internal staff: platform permissions on the admin app." },',
+				'{ key: "staff", name: "Staff", description: "Internal staff: platform permissions on the admin app.", heldBy: "identity" },',
 		},
 		{
 			// Keycloak shops sign staff in with Keycloak too: a token with the staff role
