@@ -6,6 +6,8 @@ export interface PmCommands {
 	run: string;
 	/** run a binary from node_modules/.bin */
 	exec: string;
+	/** run a package without installing it into the app */
+	dlx: string[];
 	lockfile: string;
 }
 
@@ -16,6 +18,7 @@ export function pmCommands(pm: PackageManager): PmCommands {
 				install: ["pnpm", "install"],
 				run: "pnpm",
 				exec: "pnpm exec",
+				dlx: ["pnpm", "dlx"],
 				lockfile: "pnpm-lock.yaml",
 			};
 		case "npm":
@@ -23,9 +26,16 @@ export function pmCommands(pm: PackageManager): PmCommands {
 				install: ["npm", "install"],
 				run: "npm run",
 				exec: "npx",
+				dlx: ["npx", "-y"],
 				lockfile: "package-lock.json",
 			};
 		case "bun":
-			return { install: ["bun", "install"], run: "bun run", exec: "bunx", lockfile: "bun.lock" };
+			return {
+				install: ["bun", "install"],
+				run: "bun run",
+				exec: "bunx",
+				dlx: ["bunx"],
+				lockfile: "bun.lock",
+			};
 	}
 }

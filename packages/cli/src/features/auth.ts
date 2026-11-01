@@ -19,7 +19,8 @@ export const auth: Feature = {
 		{
 			file: "src/apps/http.ts",
 			slot: "imports",
-			content: 'import { attachPrincipal } from "#modules/users/services/auth";',
+			content:
+				'import { clientIp, withClientIp } from "@tatara/http";\nimport { attachPrincipal } from "#modules/users/services/auth";',
 		},
 		{
 			file: "src/apps/http.ts",
@@ -134,7 +135,7 @@ export const betterAuth: Feature = {
 			order: 1,
 			content: [
 				'if (name === "api") {',
-				'\tapp.on(["GET", "POST"], `${API_PREFIX}/auth/*`, (c) => auth.handler(c.req.raw));',
+				'\tapp.on(["GET", "POST"], `${API_PREFIX}/auth/*`, (c) =>\n\t\tauth.handler(withClientIp(c.req.raw, clientIp(c, { trustedHops: env.TRUSTED_PROXY_HOPS }))),\n\t);',
 				"\tif (outbox.enabled) {",
 				'\t\tapp.get(`${API_PREFIX}/dev/outbox`, (c) => c.json({ messages: outbox.read(c.req.query("to")) }));',
 				"\t}",

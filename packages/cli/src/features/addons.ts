@@ -82,11 +82,19 @@ const REDIS_SERVICE = {
 	},
 };
 
+const jobsDriver = (drivers: string[]) => ({
+	key: "JOBS_DRIVER",
+	schema: `localDefault(z.enum(${JSON.stringify(drivers)}), "bullmq")`,
+	example: "bullmq",
+	test: "inline",
+	comment: `Where jobs wait: ${drivers.join(", ")} (inline runs them where they're sent, no worker)`,
+});
+
 export const jobs: Feature = {
 	id: "jobs",
 	kind: "addon",
-	label: "Jobs + cron (BullMQ)",
-	dependencies: ["@tatara/jobs", "bullmq", "ioredis", "croner"],
+	label: "Jobs + cron (BullMQ, Postgres or Kafka)",
+	dependencies: ["@tatara/jobs", "bullmq", "ioredis", "croner", "kafkajs"],
 	allowBuilds: ["msgpackr-extract"],
 	scripts: {
 		"start:worker": "node dist/apps/worker/index.mjs",
@@ -112,6 +120,31 @@ export const jobs: Feature = {
 			schema: "z.coerce.number().int().positive().default(5)",
 			example: "5",
 		},
+		{
+			key: "KAFKA_BROKERS",
+			schema: "z.string().optional()",
+			example: "",
+			comment: "Comma-separated brokers, for JOBS_DRIVER=kafka",
+		},
+		{
+			key: "KAFKA_CLIENT_ID",
+			schema: 'z.string().default("__APP_NAME__")',
+			example: "__APP_NAME__",
+		},
+		{ key: "KAFKA_SSL", schema: "z.stringbool().default(false)", example: "false" },
+		{ key: "KAFKA_SASL_USERNAME", schema: "z.string().optional()", example: "" },
+		{ key: "KAFKA_SASL_PASSWORD", schema: "z.string().optional()", example: "" },
+		{
+			key: "SCHEDULE_TRIGGER_SECRET",
+			schema: "z.string().min(16).optional()",
+			example: "",
+			comment:
+				"Lets a platform scheduler POST /internal/schedules/<name> with Authorization: Bearer <secret>; unset, the route doesn't exist",
+		},
+	],
+	variants: [
+		{ when: ["postgres"], env: [jobsDriver(["bullmq", "postgres", "kafka", "inline"])] },
+		{ unless: ["postgres"], env: [jobsDriver(["bullmq", "kafka", "inline"])] },
 	],
 	compose: { redis: REDIS_SERVICE },
 	slots: [
@@ -120,6 +153,64 @@ export const jobs: Feature = {
 			slot: "entries",
 			content:
 				'"apps/worker/index": "src/apps/worker/index.ts",\n"apps/cron/index": "src/apps/cron/index.ts",',
+		},
+		{
+			file: "src/apps/http.ts",
+			slot: "imports",
+			content:
+				'import { triggerSchedule } from "@tatara/jobs";\nimport { scheduleRunner } from "#apps/cron/runner";',
+		},
+		{
+			// a triggered schedule runs as long as it takes; a 504 would only make the scheduler retry
+			file: "src/apps/http.ts",
+			slot: "timeout-paths",
+			content: '"/internal/schedules/*": 15 * 60 * 1000,',
+		},
+		{
+			// for a platform scheduler (Cloud Scheduler, EventBridge, a k8s CronJob) instead of apps/cron
+			file: "src/apps/http.ts",
+			slot: "routes",
+			order: 3,
+			content: [
+				'if (name === "api" && env.SCHEDULE_TRIGGER_SECRET) {',
+				"\tconst secret = env.SCHEDULE_TRIGGER_SECRET;",
+				'\tapp.post("/internal/schedules/:name", async (c) => {',
+				'\t\tconst { status, body } = await triggerSchedule(c.req.param("name"), c.req.header("authorization"), {',
+				"\t\t\t...scheduleRunner,",
+				'\t\t\tlogger: c.get("logger"),',
+				"\t\t\tsecret,",
+				"\t\t});",
+				"\t\treturn c.json(body, status);",
+				"\t});",
+				"}",
+			].join("\n"),
+		},
+		{
+			file: "src/apps/cron/runner.ts",
+			slot: "imports",
+			when: ["auth-orgs"],
+			content: 'import { auth } from "#modules/users/services/auth";',
+		},
+		{
+			// forEachOrg visits every organization, a page at a time
+			file: "src/apps/cron/runner.ts",
+			slot: "options",
+			when: ["auth-orgs"],
+			content: [
+				"async *orgs() {",
+				"\tconst { adapter } = await auth.$context;",
+				"\tfor (let offset = 0; ; offset += 100) {",
+				"\t\tconst page = await adapter.findMany<{ id: string }>({",
+				'\t\t\tmodel: "organization",',
+				"\t\t\tlimit: 100,",
+				"\t\t\toffset,",
+				'\t\t\tsortBy: { field: "id", direction: "asc" },',
+				"\t\t});",
+				"\t\tfor (const org of page) yield org.id;",
+				"\t\tif (page.length < 100) return;",
+				"\t}",
+				"},",
+			].join("\n"),
 		},
 		{
 			file: "tests/setup.ts",
@@ -139,11 +230,19 @@ export const jobs: Feature = {
 			slot: "sections",
 			content: `## Jobs and schedules
 
-- Background work: \`enqueue(topic, payload)\` from \`#core/jobs/index\`; a module handles it in
-  \`consumers/<name>.ts\` (\`defineConsumer({ topic, schema, handle })\` from \`@tatara/jobs\`). Payloads are validated by the
-  consumer's zod schema. Handlers must be idempotent: jobs retry.
-- Recurring work: \`schedules/<name>.ts\` (\`defineSchedule({ name, cron, run })\`). A Redis lock makes
-  each tick run once across every cron process.
+- Background work: \`enqueue(topic, payload, { orgId })\` from \`#core/jobs/index\`, typed by the app's
+  consumers. A module handles a topic in \`consumers/<name>.ts\`
+  (\`defineConsumer({ topic, schema, attempts?, backoffMs?, handle, onDeadLetter? })\` from \`@tatara/jobs\`).
+  The consumer validates the payload; a payload that never validates goes straight to dead.
+  Handlers must be idempotent: a failure retries with doubling backoff, and \`onDeadLetter\` runs once,
+  after the last attempt.
+- \`JOBS_DRIVER\` picks where jobs wait: \`bullmq\` (Redis, default), \`postgres\` (a \`tatara.jobs\` table;
+  pass \`{ executor: inTransaction(tx) }\` and the job commits with your writes, a transactional
+  outbox), \`kafka\`, or \`inline\` (tests: \`(jobs.driver as InlineDriver).drain()\`).
+- Recurring work: \`schedules/<name>.ts\` (\`defineSchedule({ name, cron, run })\`); \`run({ forEachOrg })\`
+  visits every org, one failure at a time. A lock (the cache) makes each tick run once however it
+  was started: \`apps/cron\`, \`tatara run schedule:run --name <name>\`, or
+  \`POST /internal/schedules/<name>\` with \`SCHEDULE_TRIGGER_SECRET\` (for a platform scheduler).
 - Processes: \`apps/worker\` runs consumers, \`apps/cron\` runs schedules. \`dev\` starts both.
 `,
 		},
@@ -189,6 +288,8 @@ export const cache: Feature = {
   and \`lock(key, ttlMs, fn)\` (one holder across processes).
 - Scope keys with \`orgKey(orgId, …)\` / \`userKey(userId, …)\` from \`@tatara/cache\`, and drop them all
   with \`cache.delPrefix(orgKey(orgId))\`.
+- Rate-limit a route with \`middleware: [limitRequests({ name, windowMs, max })]\` from
+  \`#core/http/rate-limit\` (per caller IP, or per \`key\`); past the limit it answers 429 RATE_LIMITED.
 - \`CACHE_DRIVER\` picks the store (Redis by default; tests use memory). Values must be JSON.
 `,
 		},
@@ -250,7 +351,7 @@ export const admin: Feature = {
 			slot: "routes",
 			order: 2,
 			content:
-				'if (name === "admin") app.on(["GET", "POST"], `${API_PREFIX}/auth/*`, (c) => staffAuth.handler(c.req.raw));',
+				'if (name === "admin") app.on(["GET", "POST"], `${API_PREFIX}/auth/*`, (c) =>\n\tstaffAuth.handler(withClientIp(c.req.raw, clientIp(c, { trustedHops: env.TRUSTED_PROXY_HOPS }))),\n);',
 		},
 		{
 			// every other admin /api route needs a staff principal

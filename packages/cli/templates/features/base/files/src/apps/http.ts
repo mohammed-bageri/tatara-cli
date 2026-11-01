@@ -20,6 +20,12 @@ export function createHttpApp(name: AppName, options: { title: string }) {
 			],
 		},
 		bodyLimitBytes: env.BODY_LIMIT_BYTES,
+		timeouts: {
+			defaultMs: env.REQUEST_TIMEOUT_MS,
+			paths: {
+				// tatara:slot timeout-paths
+			},
+		},
 		defaults: { principal: null, language: "en" },
 	});
 	// tatara:slot middleware

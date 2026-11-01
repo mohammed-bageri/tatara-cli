@@ -60,6 +60,7 @@ const ERROR_DESCRIPTIONS = {
 	403: "Forbidden",
 	404: "Not found",
 	409: "Conflict",
+	429: "Too many requests",
 } as const;
 
 type ErrorStatus = keyof typeof ERROR_DESCRIPTIONS;

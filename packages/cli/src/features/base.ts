@@ -72,6 +72,20 @@ export const base: Feature = {
 			schema: "z.coerce.number().int().positive().default(1_048_576)",
 			example: "1048576",
 		},
+		{
+			key: "REQUEST_TIMEOUT_MS",
+			schema: "z.coerce.number().int().positive().default(30_000)",
+			example: "30000",
+			comment:
+				"Longest a request may take before a 504 (slow paths get their own in src/apps/http.ts)",
+		},
+		{
+			key: "TRUSTED_PROXY_HOPS",
+			schema: "z.coerce.number().int().min(0).default(0)",
+			example: "0",
+			comment:
+				"Proxies in front of the app that append to X-Forwarded-For (a load balancer, Cloud Run: 1)",
+		},
 	],
 	entrypoints: [
 		{ name: "api", file: "server.ts", description: "HTTP API" },

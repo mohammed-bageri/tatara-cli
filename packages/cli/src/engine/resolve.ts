@@ -8,7 +8,10 @@ export function validateOptions(input: AppOptions): AppOptions {
 	const options: AppOptions = {
 		...input,
 		authMethods: [...new Set(input.authMethods)],
-		addons: [...new Set(input.addons)],
+		// schedules lock with the cache, so jobs bring it along
+		addons: [
+			...new Set([...input.addons, ...(input.addons.includes("jobs") ? (["cache"] as const) : [])]),
+		],
 	};
 	if (!/^[a-z][a-z0-9-]*$/.test(options.name)) {
 		throw new OptionsError(

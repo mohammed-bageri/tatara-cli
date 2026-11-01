@@ -442,6 +442,19 @@ async function smoke(s: Scenario, dir: string, logDir: string): Promise<string[]
 				readFileSync(join(logDir, "cron.log"), "utf8").includes("cron started"),
 				"cron did not start",
 			);
+			// a platform scheduler's way in: the same schedule, under the same lock
+			const scheduled = await run(
+				"node",
+				[
+					"--env-file=.env",
+					"dist/apps/cli/index.mjs",
+					"schedule:run",
+					"--name",
+					"example.heartbeat",
+				],
+				{ cwd: dir },
+			);
+			expect(scheduled.code === 0, `schedule:run: ${scheduled.out.slice(-300)}`);
 			notes.push("jobs");
 		}
 	} finally {
@@ -575,6 +588,20 @@ async function runScenario(
 			const failed = doctor.filter((c) => !c.ok);
 			if (failed.length) throw new Error(`doctor: ${JSON.stringify(failed)}`);
 			return `${routes.length} routes`;
+		})) &&
+		(await step("contracts", async () => {
+			await sh(tatara, ["contracts"], "contracts");
+			const types = readFileSync(join(dir, "contracts/api.ts"), "utf8");
+			if (!types.includes('"/api/me"') && !types.includes('"/api/greetings"'))
+				throw new Error("contracts/api.ts lacks the app's paths");
+			await sh(tatara, ["contracts", "--check"], "contracts-check");
+			writeFileSync(join(dir, "contracts/api.ts"), "// stale\n");
+			const caught = await sh(tatara, ["contracts", "--check"], "contracts-stale").then(
+				() => false,
+				() => true,
+			);
+			if (!caught) throw new Error("contracts --check passed on a stale file");
+			await sh(tatara, ["contracts"], "contracts");
 		})) &&
 		(await step("generators", async () => {
 			const made: string[] = [];

@@ -92,6 +92,8 @@ export function postgresStore(db: Queryable): CacheStore {
 			return rowCount ?? 0;
 		},
 		async increment(key, by, ttlMs) {
+			// rate limits only increment: without this, one row per caller would stay forever
+			await sweep();
 			const expired = `${TABLE}.expires_at <= now()`;
 			const { rows } = await query(
 				`insert into ${TABLE} (key, value, expires_at) values ($1, $2::bigint::text, ${EXPIRES})

@@ -48,6 +48,17 @@ export const ${options.exportName}: ${options.typeName}[] = [${names.join(", ")}
 `;
 }
 
+/** The consumers keep their literal topics and schemas, so `TopicsOf<typeof consumers>` types enqueue. */
+function consumerList(files: string[]): string {
+	const imports = files.map((f) => `import ${identifier(f, "consumer")} from "${specifier(f)}";`);
+	const names = files.map((f) => identifier(f, "consumer"));
+	return `${HEADER}import type { ConsumerDefinition } from "@tatara/jobs";
+${imports.join("\n")}${imports.length ? "\n" : ""}
+// biome-ignore lint/suspicious/noExplicitAny: every consumer, whatever its payload
+export const consumers = [${names.join(", ")}] as const satisfies readonly ConsumerDefinition<string, any>[];
+`;
+}
+
 /** A command or seed factory a @tatara/* package declares in its package.json "tatara" field. */
 interface Contribution {
 	import: string;
@@ -182,16 +193,7 @@ export async function sync(project: Project = loadProject()): Promise<SyncResult
 			root,
 			dirs.map((d) => `${d}/consumers/*.ts`),
 		);
-		await write(
-			join(out, "consumers.ts"),
-			listModule(consumers, {
-				prefix: "consumer",
-				typeImport: 'import type { ConsumerDefinition } from "@tatara/jobs";',
-				typeName: "ConsumerDefinition",
-				exportName: "consumers",
-			}),
-			written,
-		);
+		await write(join(out, "consumers.ts"), consumerList(consumers), written);
 		const schedules = await find(
 			root,
 			dirs.map((d) => `${d}/schedules/*.ts`),

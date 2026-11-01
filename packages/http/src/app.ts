@@ -7,7 +7,8 @@ import { cors } from "hono/cors";
 import { createMiddleware } from "hono/factory";
 import { HTTPException } from "hono/http-exception";
 import { secureHeaders } from "hono/secure-headers";
-import { AppError } from "./errors.ts";
+import { AppError, TooManyRequestsError } from "./errors.ts";
+import { requestTimeout, type TimeoutOptions } from "./timeout.ts";
 import { validationHook } from "./validation.ts";
 
 /** Variables every tatara app has; apps extend them with their own (principal, language, …). */
@@ -42,10 +43,27 @@ export function requestContext<E extends HttpEnv>(logger: CoreLogger, defaults: 
 
 export interface CreateAppOptions<E extends HttpEnv> {
 	logger: CoreLogger;
+	/** origins are exact (`https://app.example.com`) or one-label patterns (`https://*.example.com`) */
 	cors: { origins: string[]; exposeHeaders?: string[]; allowHeaders?: string[] };
 	bodyLimitBytes: number;
+	/** a limit on how long a handler may take, with longer ones for slow paths */
+	timeouts?: TimeoutOptions;
 	/** initial values for the app's own variables, e.g. `{ principal: null, language: "en" }` */
 	defaults?: Defaults<E>;
+}
+
+/** Matches exact origins and `*.`-patterns, where `*` is exactly one DNS label (tenant subdomains). */
+export function corsOrigin(origins: string[]): (origin: string) => string | null {
+	const exact = new Set(origins.filter((o) => !o.includes("*")));
+	const patterns = origins
+		.filter((o) => o.includes("*"))
+		.map((o) => {
+			if (!/^https?:\/\/\*\.[^*]+$/.test(o))
+				throw new Error(`CORS origin pattern "${o}" must look like https://*.example.com`);
+			const escaped = o.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace("*", "[a-z0-9-]+");
+			return new RegExp(`^${escaped}$`, "i");
+		});
+	return (origin) => (exact.has(origin) || patterns.some((p) => p.test(origin)) ? origin : null);
 }
 
 /** A plain OpenAPIHono app with request context, secure headers, CORS, body limit, /health and /ready. */
@@ -55,7 +73,7 @@ export function createApp<E extends HttpEnv>(options: CreateAppOptions<E>): Open
 	app.use(secureHeaders());
 	app.use(
 		cors({
-			origin: options.cors.origins,
+			origin: corsOrigin(options.cors.origins),
 			credentials: true,
 			allowHeaders: options.cors.allowHeaders ?? [
 				"Content-Type",
@@ -67,6 +85,7 @@ export function createApp<E extends HttpEnv>(options: CreateAppOptions<E>): Open
 		}),
 	);
 	app.use(bodyLimit({ maxSize: options.bodyLimitBytes }));
+	if (options.timeouts) app.use(requestTimeout(options.timeouts));
 	app.get("/health", (c) => c.json({ status: "ok" }));
 	app.get("/ready", async (c) => {
 		const result = await runReadinessChecks();
@@ -135,6 +154,8 @@ export function handleErrors<E extends HttpEnv>(
 ): void {
 	app.onError((err, c) => {
 		if (err instanceof AppError) {
+			if (err instanceof TooManyRequestsError)
+				c.header("Retry-After", String(err.retryAfterSeconds));
 			const message = options.message ? options.message(err, c as Context<E>) : err.message;
 			return c.json(
 				{

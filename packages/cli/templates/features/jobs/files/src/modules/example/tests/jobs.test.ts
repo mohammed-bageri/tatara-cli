@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { processJob, withLock } from "@tatara/jobs";
-import { redis } from "#core/jobs/index";
+import { type InlineDriver, processJob } from "@tatara/jobs";
+import { enqueue, jobs } from "#core/jobs/index";
 import { logger } from "#core/logging/logger";
 import { consumers } from "#generated/consumers";
 
@@ -17,13 +17,10 @@ describe("jobs", () => {
 		);
 	});
 
-	it("lets only one holder run a locked section", async () => {
-		const key = `test-${Date.now()}-${Math.random()}`;
-		let inner: boolean | undefined;
-		const outer = await withLock(redis(), key, 5000, async () => {
-			inner = await withLock(redis(), key, 5000, async () => {});
-		});
-		expect(outer).toBe(true);
-		expect(inner).toBe(false);
+	it("runs an enqueued job in tests (JOBS_DRIVER=inline)", async () => {
+		await enqueue("example.send-welcome", { name: "Ada" });
+		const driver = jobs.driver as InlineDriver;
+		await driver.drain();
+		expect(driver.dead).toEqual([]);
 	});
 });

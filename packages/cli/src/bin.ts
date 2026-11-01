@@ -3,6 +3,7 @@ import { Command, Option } from "commander";
 import pc from "picocolors";
 import { runAppCli } from "./commands/app-cli.ts";
 import { check } from "./commands/check.ts";
+import { writeContracts } from "./commands/contracts.ts";
 import { DbError, dbGenerate, dbMigrate, dbReset, dbSeed, dbStudio } from "./commands/db.ts";
 import { dev } from "./commands/dev.ts";
 import { doctor, printDoctor } from "./commands/doctor.ts";
@@ -180,6 +181,20 @@ program
 		const routes = await listRoutes(loadProject());
 		if (flags.json) console.log(JSON.stringify(routes, null, 2));
 		else printRoutes(routes);
+	});
+
+program
+	.command("contracts")
+	.description("Write each app's OpenAPI document and TypeScript types for typed clients")
+	.option("--out <dir>", "folder to write them to", "contracts")
+	.option("--check", "fail when the files are out of date instead of writing them")
+	.action(async (flags: { out: string; check?: boolean }) => {
+		const { written, stale } = await writeContracts(loadProject(), flags);
+		for (const file of written) console.log(`${pc.green("✔")} ${file}`);
+		if (stale.length > 0) {
+			console.error(`Out of date: ${stale.join(", ")}. Run tatara contracts.`);
+			process.exitCode = 1;
+		}
 	});
 
 program

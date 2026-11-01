@@ -1,8 +1,7 @@
 import { handleSignals } from "@tatara/core";
 import { startCron } from "@tatara/jobs";
-import { redis } from "#core/jobs/index";
 import { logger } from "#core/logging/logger";
-import { schedules } from "#generated/schedules";
+import { scheduleRunner } from "#apps/cron/runner";
 
-startCron({ schedules, redis, logger });
+startCron({ ...scheduleRunner, logger });
 handleSignals(logger);

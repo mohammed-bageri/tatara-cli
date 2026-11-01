@@ -55,6 +55,12 @@ __PM_EXEC__ tatara upgrade               # after bumping @tatara/cli: run its co
   `{ success: false, error, code, details }`.
 - Route files are `routes/<name>.routes.ts` and default-export `defineRoutes({ app, basePath, router })`.
   They are found automatically; there is no central list to edit.
+- Long or live lists page by cursor: `cursorQuerySchema` for the query, fetch `limit + 1` rows after
+  `decodeCursor(positionSchema, cursor)`, answer `cursorPage(rows, limit, (row) => ({ createdAt, id }))`
+  (schema: `cursorPageSchema(item)`).
+- Requests time out after `REQUEST_TIMEOUT_MS` (504); give slow paths their own limit in
+  `src/apps/http.ts` (`timeouts.paths`). Behind proxies, set `TRUSTED_PROXY_HOPS` and read the caller
+  with `clientIp(c, { trustedHops })`.
 
 ## Configuration and logging
 

@@ -1,7 +1,7 @@
 {
 	"$schema": "https://biomejs.dev/schemas/__BIOME_VERSION__/schema.json",
 	"files": {
-		"includes": ["**", "!**/node_modules", "!**/dist", "!**/coverage", "!src/generated", "!drizzle", "!prisma/migrations"]
+		"includes": ["**", "!**/node_modules", "!**/dist", "!**/coverage", "!src/generated", "!drizzle", "!prisma/migrations", "!contracts"]
 	},
 	"formatter": { "indentStyle": "tab", "lineWidth": 100 },
 	"javascript": { "formatter": { "quoteStyle": "double" } },
