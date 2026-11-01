@@ -66,7 +66,8 @@ async function orgsNamed(ctx: HookCtx, activeOrgId: unknown): Promise<string[]> 
 /**
  * Hands org access to authz: better-auth keeps who belongs to which org (members `owner` and
  * `member` only), and authz decides what they may do. Owners hold `creatorRole`: the creator gets
- * it, so does a member made owner later, and an owner made member loses it. A member
+ * it, so do a member made owner and someone invited as owner, and an owner made member loses it
+ * (it is one assignment: an admin role given separately to an owner goes too). A member
  * removed or leaving loses their authz roles and overlays, and `endpoints` puts better-auth's own
  * org endpoints behind authz permissions. Add it after `organization()`.
  */
@@ -152,6 +153,17 @@ export function authzPlugin<K extends string>(
 		}
 	});
 
+	/** Someone invited as owner holds the creator's role from the moment they accept. */
+	const acceptedOwner: AuthMiddleware = createAuthMiddleware(async (ctx) => {
+		const returned = ctx.context.returned;
+		if (!creatorRole || !returned || returned instanceof Error || returned instanceof Response)
+			return;
+		const member = record(record(returned).member);
+		if (typeof member.organizationId !== "string" || typeof member.userId !== "string") return;
+		if (rolesIn(member.role).includes("owner"))
+			await authz.grantSystemRole(member.organizationId, member.userId, creatorRole, member.userId);
+	});
+
 	const lifecycle: AuthMiddleware = createAuthMiddleware(async (ctx) => {
 		const returned = ctx.context.returned;
 		if (!returned || returned instanceof Error || returned instanceof Response) return;
@@ -188,6 +200,10 @@ export function authzPlugin<K extends string>(
 					handler: lifecycle,
 				},
 				{ matcher: (ctx) => ctx.path === "/organization/update-member-role", handler: ownership },
+				{
+					matcher: (ctx) => ctx.path === "/organization/accept-invitation",
+					handler: acceptedOwner,
+				},
 			],
 		},
 	} satisfies BetterAuthPlugin;

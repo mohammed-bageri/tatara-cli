@@ -155,6 +155,24 @@ describe("authzPlugin", () => {
 		expect(await t.authz.checkPermission(asMember(member.id, orgId), "people:list")).toBe(true);
 	});
 
+	it("gives someone invited as owner the creator's role when they accept", async () => {
+		const { orgId, owner } = await orgWithMember();
+		const invitee = await t.user();
+		const row = (t.db.user ?? []).find((u) => u.id === invitee.id) as { email: string };
+		const email = row.email;
+		const invited = await t.call("invite-member", owner.headers, {
+			organizationId: orgId,
+			email,
+			role: "owner",
+		});
+		expect(invited.status).toBe(200);
+		const accepted = await t.call("accept-invitation", invitee.headers, {
+			invitationId: (invited.body as { id: string }).id,
+		});
+		expect(accepted.status).toBe(200);
+		expect(await t.authz.checkPermission(asMember(invitee.id, orgId), "people:list")).toBe(true);
+	});
+
 	it("clears authz access when a member is removed or leaves", async () => {
 		const { orgId, owner, member, memberRowId } = await orgWithMember();
 		await t.authz.addOverlay(null, orgId, member.id, {
