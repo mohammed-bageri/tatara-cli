@@ -1,5 +1,26 @@
 # create-tatara
 
+## 0.11.0
+
+### Minor Changes
+
+- b9fca8f: `@tatara/cache`: one cache contract (`get/set/del/delPrefix/add/take/increment/wrap/lock`, `orgKey`/`userKey`) with memory, Redis and Postgres (unlogged table in its own schema) drivers. New `cache` add-on: `cache` from `#core/cache/index`, picked with `CACHE_DRIVER` (Redis by default, memory in tests).
+- 6170cca: `@tatara/http`: `rateLimit` (fixed window over any counter, 429 RATE_LIMITED with Retry-After, fails open), `clientIp`/`withClientIp` (trusted proxy hops), cursor pagination (`cursorQuerySchema`, `cursorPage`, `encodeCursor`/`decodeCursor`), CORS origin patterns (`https://*.example.com`), per-path request timeouts (504 REQUEST_TIMEOUT), and `startServer({ onServer })`. Generated apps time out requests after `REQUEST_TIMEOUT_MS`, give better-auth the caller's real address (`TRUSTED_PROXY_HOPS`), and with the cache add-on get `limitRequests`. New `tatara contracts` writes each app's OpenAPI document and TypeScript types for openapi-fetch clients (`--check` for CI). Codemod 0.11.0 `http-limits`.
+- 3fac4cc: Jobs v2: one job envelope (`id, topic, data, orgId, attempt, maxAttempts`) over drivers — `inline` (tests), `postgres` (`tatara.jobs`, SKIP LOCKED; a transactional outbox with `{ executor }`), `bullmq` (default) and `kafka` (kafkajs; delayed and dead topics). Retries double from `backoffMs`; `onDeadLetter` runs once, after the last attempt; a payload that doesn't validate is dead at once. `createJobs<TopicsOf<typeof consumers>>` types `enqueue`. Schedules lock through any `lock()` (the cache), get `forEachOrg`, and can be started from outside: `schedule:run` and `triggerSchedule` for an HTTP trigger. Generated apps pick `JOBS_DRIVER`, bring the cache add-on with jobs, and mount `POST /internal/schedules/:name` when `SCHEDULE_TRIGGER_SECRET` is set. Codemod 0.11.0 `jobs-drivers`.
+- 6bcea69: `@tatara/notifications`: `notify({ orgId, to, notification, data })` for in-app, email, SMS and push. Recipients are a user, users, a role or a permission; delivery goes through jobs (fan-out, then one delivery per user), each channel once per recipient, deduped by `idempotencyKey`. `defineNotification` templates in `notifications/*.ts`, Drizzle and Prisma stores, Twilio and FCM senders (console fallbacks). `@tatara/email`: a Mailgun driver and `defineEmail` templates. New `notifications` add-on (brings jobs and the cache): the inbox routes, push tokens, `SMS_DRIVER`/`PUSH_DRIVER`. Codemod 0.11.0 `email-v2`.
+- 315003d: Operations. `@tatara/core`: a `deploy` command (commands with `phase: "deploy"` every deploy, `phase: "once"` once per database, recorded in a ledger; `db:migrate` runs first, `authz:sync-permissions` after), `createEncryption` (AES-256-GCM, rotatable keys), `randomCode`/`numericCode`/`randomToken`/`hashToken`/`safeEqual`, and `cleanText`/`safeUrl` with the `text()`/`url()` zod fields. `@tatara/db`: `commandLedger(url)` per driver; a Postgres reset also drops the `tatara` schema. New `@tatara/observability` and `observability` add-on: OpenTelemetry traces and metrics over OTLP/HTTP with auto-instrumentation, Hono request spans, trace ids on log lines, instrumented processes through `--import ./dist/apps/instrument.mjs`. Codemod 0.11.0 `deploy-ledger`.
+- 3d71569: `@tatara/realtime`: socket.io with single-use tickets (through the cache), per-user and per-org rooms, module channels (`defineChannel`: a name pattern, `authorize`, zod-checked events), `publishToUser` / `publishToOrg` / `publishTo` from any process (Redis adapter and emitter; a publish has left the process when it resolves), `disconnectUser` / `disconnectOrg`, and a `realtime:publish` command. New `realtime` add-on: `POST /api/realtime/ticket`, the api attaches sockets on its own port (`startServer({ onServer })`), `channels/*.ts` convention, and with notifications every inbox entry is pushed as `notification.created`.
+
+### Patch Changes
+
+- Updated dependencies [b9fca8f]
+- Updated dependencies [6170cca]
+- Updated dependencies [3fac4cc]
+- Updated dependencies [6bcea69]
+- Updated dependencies [315003d]
+- Updated dependencies [3d71569]
+  - @tatara/cli@0.11.0
+
 ## 0.10.0
 
 ### Minor Changes
