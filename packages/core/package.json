@@ -9,6 +9,10 @@
 		".": {
 			"types": "./dist/index.d.mts",
 			"import": "./dist/index.mjs"
+		},
+		"./html": {
+			"types": "./dist/html.d.mts",
+			"import": "./dist/html.mjs"
 		}
 	},
 	"files": [
@@ -25,11 +29,14 @@
 	},
 	"peerDependencies": {
 		"zod": "^4.6.7",
-		"pino": "^10.4.0"
+		"pino": "^10.4.0",
+		"sanitize-html": "^2.18.1"
 	},
 	"devDependencies": {
 		"zod": "^4.6.7",
-		"pino": "^10.4.0"
+		"pino": "^10.4.0",
+		"sanitize-html": "^2.18.1",
+		"@types/sanitize-html": "^2.16.2"
 	},
 	"publishConfig": {
 		"access": "public"
@@ -42,5 +49,10 @@
 	"homepage": "https://github.com/mohammed-bageri/tatara-cli#readme",
 	"bugs": {
 		"url": "https://github.com/mohammed-bageri/tatara-cli/issues"
+	},
+	"peerDependenciesMeta": {
+		"sanitize-html": {
+			"optional": true
+		}
 	}
 }

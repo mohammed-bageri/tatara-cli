@@ -73,6 +73,8 @@ __PM_EXEC__ tatara upgrade               # after bumping @tatara/cli: run its co
   Never `Math.random()` for anything a user could guess.
 - User text: `text({ max })` and `url()` from `@tatara/core` in validators clean and check it (control,
   invisible and bidi characters, whitespace; only http(s) links). Escape when you render HTML.
+  Rich text users write: `sanitizeHtml(html)` (or `"email"` for templates) from `@tatara/core/html`
+  once `sanitize-html` is a dependency.
 
 ## Deploying
 
