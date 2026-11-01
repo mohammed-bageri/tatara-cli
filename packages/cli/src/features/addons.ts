@@ -709,6 +709,7 @@ export const observability: Feature = {
 		"@opentelemetry/exporter-metrics-otlp-http",
 		"@opentelemetry/auto-instrumentations-node",
 		"@opentelemetry/instrumentation",
+		"import-in-the-middle",
 		"@hono/otel",
 	],
 	allowBuilds: ["protobufjs"],
