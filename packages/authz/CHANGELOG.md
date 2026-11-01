@@ -1,5 +1,11 @@
 # @tatara/authz
 
+## 0.5.2
+
+### Patch Changes
+
+- 03d1428: `authzPlugin`: someone invited as `owner` gets the creator's role when they accept.
+
 ## 0.5.1
 
 ### Patch Changes
